@@ -151,7 +151,7 @@ function renderWeek(){var d=days(),iso=S.wk;
   var c=meals().length,off=d.filter(function(x){return x==='off'}).length;
   $('#wksum').textContent=c?c+' dinner'+(c>1?'s':'')+' planned'+(off?' · '+off+' night'+(off>1?'s':'')+' off':''):'Nothing planned yet';
   $('#wbcount').textContent=c;
-  ['#shopbtn','#mdbtn','#pdfbtn'].forEach(function(b){$(b).disabled=!c});
+  ['#shopbtn','#mdbtn','#pdfbtn','#asdabtn'].forEach(function(b){$(b).disabled=!c});
   $('#shopbtn').textContent=c?'Shopping list for '+c+' dinner'+(c>1?'s':''):'Shopping list';
   save()}
 function past(i,iso){return isoOf(dateOf(iso||S.wk,i))<isoOf(noon(new Date()))}
@@ -218,11 +218,12 @@ function shopView(iso){iso=iso||S.wk;var ms=meals(iso);if(!ms.length)return;var 
   function block(a){return '<div class="aisle"><h4 class="label">'+a[1]+'</h4><ul class="ings">'+m[a[0]].map(function(x){return '<li><label><input type="checkbox"><span><span class="q">'+esc(x.q)+'</span> '+esc(x.name)+(x.split?'<span class="split">'+esc(splitText(x))+'</span>':'')+'</span></label></li>'}).join('')+'</ul></div>'}
   show('<div class="r-in shop"><span class="label" style="color:var(--mark)">Shopping list · '+weekName(iso)+'</span><h2 id="dlgTitle">'+ms.length+' dinner'+(ms.length>1?'s':'')+', '+weekRange(iso)+'</h2>'+
    '<div class="meals-sum">'+ms.map(function(x){return '<button type="button" class="ms" data-goto="'+x.slug+'" data-day="'+x.day+'"><span class="msi">'+imgTag(x.slug,80)+'</span><span><small>'+DAY3[x.day]+'</small> '+esc(BY[x.slug].title)+'</span></button>'}).join('')+'</div>'+
-   '<div class="r-actions"><button type="button" class="btn btn-main" data-pdf>Download PDF</button><button type="button" class="btn btn-ghost" data-md>Download for the shopping agent (.md)</button><button type="button" class="btn btn-ghost" data-copy>Copy list</button></div>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-asda>🛒 Send to Claude for ASDA</button><button type="button" class="btn btn-ghost" data-pdf>Download PDF</button><button type="button" class="btn btn-ghost" data-md>Download for the shopping agent (.md)</button><button type="button" class="btn btn-ghost" data-copy>Copy list</button></div>'+
    '<p class="note">Everything is added up across the week, so you only buy it once. Where an item is shared, the grey line shows how it splits by day, and each recipe tells you how much to use. Weekly essentials are not included.</p>'+
    '<div class="cols"><div>'+shop.map(block).join('')+'</div><div><div class="tip" style="background:var(--rory-pale)"><span>Check the cupboard first. You probably have most of these.</span></div>'+cup.map(block).join('')+'</div></div></div>');
   $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
     if(t.dataset.goto)recipeView(t.dataset.goto,{wk:iso,day:+t.dataset.day});
+    if(t.hasAttribute('data-asda'))asdaView(iso);
     if(t.hasAttribute('data-md'))downloadMD(iso);
     if(t.hasAttribute('data-pdf'))downloadPDF(iso,t);
     if(t.hasAttribute('data-copy')){var txt=toMD(iso);(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){toast('Copied')},function(){toast('Copy did not work, use Download instead')})}}}
@@ -236,7 +237,7 @@ function planView(){var list=[],seen={};
   var rows=list.map(function(w){var d=days(w),c=meals(w).length;
     return '<div class="cal-row'+(w===S.wk?' cur':'')+(w===THIS?' now':'')+'"><button type="button" class="cal-w" data-wk="'+w+'"><b>'+weekName(w)+'</b><span>'+weekRange(w)+'</span><small>'+(c?c+' dinner'+(c>1?'s':''):'Nothing planned')+'</small></button>'+
       d.map(function(s,i){return '<button type="button" class="cal-d'+(isSlug(s)?' has':'')+(s==='off'?' off':'')+'" data-wk="'+w+'" data-cd="'+i+'" title="'+(isSlug(s)?esc(BY[s].title):s==='off'?'Night off':'Empty')+'"><span class="dn">'+dateOf(w,i).getDate()+'</span>'+(isSlug(s)?imgTag(s,120)+'<span class="ct">'+esc(shortTitle(s))+'</span>':s==='off'?'<span class="ct">Off</span>':'')+'</button>'}).join('')+
-      '<div class="cal-a">'+(c?'<button type="button" class="mini" data-shop="'+w+'">List</button><button type="button" class="mini" data-wmd="'+w+'">.md</button><button type="button" class="mini" data-wpdf="'+w+'">PDF</button>':'')+'</div></div>'}).join('');
+      '<div class="cal-a">'+(c?'<button type="button" class="mini" data-shop="'+w+'">List</button><button type="button" class="mini" data-wmd="'+w+'">.md</button><button type="button" class="mini" data-wpdf="'+w+'">PDF</button><button type="button" class="mini" data-wasda="'+w+'">🛒 ASDA</button>':'')+'</div></div>'}).join('');
   show('<div class="r-in"><span class="label" style="color:var(--mark)">Plan ahead</span><h2 id="dlgTitle">Your weeks</h2><p class="note">Tap a week to plan it, or tap a dinner to open it. Plan as far ahead as you like.</p>'+
    '<div class="cal"><div class="cal-row head"><span></span>'+DAY3.map(function(d){return '<span class="label">'+d+'</span>'}).join('')+'<span></span></div>'+rows+'</div>'+
    '<div class="r-actions" style="margin-top:16px"><button type="button" class="btn btn-ghost" data-more>Show 12 more weeks</button></div></div>',true);
@@ -246,12 +247,36 @@ function planView(){var list=[],seen={};
     if(t.dataset.shop)shopView(t.dataset.shop);
     if(t.dataset.wmd)downloadMD(t.dataset.wmd);
     if(t.dataset.wpdf)downloadPDF(t.dataset.wpdf,t);
+    if(t.dataset.wasda)asdaView(t.dataset.wasda);
     if(t.hasAttribute('data-more')){SHOWN+=12;planView();$('#ov').scrollTop=1e6}}}
 
 /* ---------- downloads ---------- */
 function fileDate(iso){return iso}
 function save_(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
 function downloadMD(iso){if(!meals(iso).length){toast('Nothing planned that week');return}save_(new Blob([toMD(iso)],{type:'text/markdown'}),'adams-week-'+fileDate(iso)+'.md');toast('Downloaded')}
+/* ---------- send the week to Claude to fill the ASDA trolley ---------- */
+function asdaPrompt(iso){var ms=meals(iso),m=merged(iso);
+  var L=['Please do our ASDA shop using my asda-weekly-shop skill.','',
+    'Week of '+fmt(fromIso(iso),{weekday:'long',day:'numeric',month:'long',year:'numeric'})+' ('+ms.length+' dinners for 2 adults and 3 young boys). Allergy: no prawns or shellfish.','',
+    'Dinners: '+ms.map(function(x){return DAY3[x.day]+' '+BY[x.slug].title}).join('; ')+'.','','BUY (totals for the whole week, already combined):'];
+  AISLES.forEach(function(a){if(CHECK[a[0]]||!m[a[0]].length)return;L.push(a[1]+':');m[a[0]].forEach(function(x){L.push('- '+x.q+' '+x.name)})});
+  L.push('','CHECK THE CUPBOARD (do not add unless I say):');
+  AISLES.forEach(function(a){if(!CHECK[a[0]]||!m[a[0]].length)return;m[a[0]].forEach(function(x){L.push('- '+x.q+' '+x.name)})});
+  L.push('','Fill the trolley only. Do not book a slot, check out or pay.');
+  return L.join('\n')}
+function sendToClaude(iso,where){if(!meals(iso).length){toast('Nothing planned that week');return}
+  var p=asdaPrompt(iso),q=encodeURIComponent(p);
+  try{navigator.clipboard&&navigator.clipboard.writeText(p)}catch(e){}
+  if(where==='app'){location.href='claude://cowork/new?q='+q;toast('Opening the Claude app. Press send there.')}
+  else{window.open('https://claude.ai/new?q='+q,'_blank','noopener');toast('Opening Claude. Press send there.')}}
+function asdaView(iso){iso=iso||S.wk;if(!meals(iso).length){toast('Nothing planned that week');return}
+  show('<div class="r-in"><span class="label" style="color:var(--mark)">ASDA shop · '+weekName(iso)+'</span><h2 id="dlgTitle">Send this week to Claude</h2>'+
+   '<p class="lede">Claude opens with your combined list ready to go. Press send and it fills your ASDA trolley in Chrome, then tells you what it picked. You check out and pay yourself.</p>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-send="app">Open in the Claude app</button><button type="button" class="btn btn-ghost" data-send="web">Open Claude on the web</button></div>'+
+   '<p class="note">Before you send: be signed in to ASDA in Chrome, and have Claude in Chrome switched on. The list is also copied, so you can paste it into any Claude chat if the button does not open.</p>'+
+   '<pre class="pre">'+esc(asdaPrompt(iso))+'</pre></div>');
+  $('#sheet').onclick=function(e){var t=e.target.closest('button');if(t&&t.dataset.send)sendToClaude(iso,t.dataset.send)}}
+
 function toMD(iso){var ms=meals(iso),m=merged(iso),U=usage(iso),base=location.origin+location.pathname,d=days(iso);
   var L=['# Adams family dinners: week of '+fmt(fromIso(iso),{day:'numeric',month:'long',year:'numeric'}),'',weekRange(iso)+' · '+ms.length+' dinners · feeds 5 (2 adults, 3 young boys)','','## Menu',''];
   for(var i=0;i<7;i++){var s=d[i],dt=fmt(dateOf(iso,i),{weekday:'long',day:'numeric',month:'short'});
@@ -324,6 +349,7 @@ $('#fill').onclick=function(){var d=W().d,pool=R.filter(function(r){return d.ind
   refresh();toast(n?'Filled '+n+' day'+(n>1?'s':'')+'. Swap any you don\'t fancy.':'No empty days to fill')};
 $('#shopbtn').onclick=function(){shopView()};
 $('#mdbtn').onclick=function(){downloadMD(S.wk)};
+$('#asdabtn').onclick=function(){asdaView(S.wk)};
 $('#pdfbtn').onclick=function(){downloadPDF(S.wk,this)};
 $('#planbtn').onclick=function(){planView()};
 $('#planbtn2').onclick=function(){planView()};
