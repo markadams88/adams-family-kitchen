@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Adams Family Kitchen</title>
+<meta name="description" content="Fifty quick-prep slow cooker and dump-and-bake dinners for the Adams family, with a weekly planner and shopping list.">
+<link rel="icon" href="img/adams-icon-blue.svg" type="image/svg+xml">
+<style>
+@font-face{font-family:"TeX Gyre Heros";src:url(fonts/texgyreheros-regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"TeX Gyre Heros";src:url(fonts/texgyreheros-bold.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"TeX Gyre Pagella";src:url(fonts/texgyrepagella-regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"TeX Gyre Pagella";src:url(fonts/texgyrepagella-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"TeX Gyre Pagella";src:url(fonts/texgyrepagella-bold.woff2) format("woff2");font-weight:700;font-display:swap}
+/* Layout: blue masthead, filter bar, photo grid on the left, the week's plan docked on the right (a drawer on phones). */
+:root{
+  --mark:#1E5EFF; --jade:#00A878; --arthur:#FF5A4E; --oliver:#FF9A3C; --rory:#FFD84D;
+  --mark-pale:#E4ECFF; --jade-pale:#E0F5EF; --rory-pale:#FFFAEA;
+  --ink:#000; --muted:#4A4A4A; --line:#E3E4E8; --paper:#fff; --soft:#F5F6F9;
+  --sans:"TeX Gyre Heros",Helvetica,Arial,sans-serif;
+  --serif:"TeX Gyre Pagella","Palatino Linotype",Palatino,"Book Antiqua",serif;
+  --r-sm:3px; --r-md:8px; --r-lg:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--mark)}
+button{font:inherit;color:inherit;cursor:pointer}
+img{max-width:100%;display:block}
+.label{font-family:var(--sans);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+
+/* masthead */
+.mast{background:var(--mark);color:#fff;padding:22px 20px 18px}
+.mast-in{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.mast img{height:96px;width:auto}
+.mast h1{font-family:var(--sans);font-weight:700;font-size:clamp(22px,3vw,30px);line-height:1.1;margin:0 0 6px;letter-spacing:-.01em}
+.mast p{margin:0;max-width:52ch;font-size:16px;opacity:.95}
+.mast-copy{flex:1;min-width:240px}
+.strip{display:flex;height:6px}.strip span{flex:1}
+
+/* toolbar */
+.bar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line)}
+.bar-in{max-width:1400px;margin:0 auto;padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search{flex:1 1 220px;display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--soft)}
+.search input{border:0;background:transparent;font:16px var(--sans);width:100%;outline:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px;font:700 13px var(--sans)}
+.chip[aria-pressed="true"]{background:var(--mark);border-color:var(--mark);color:#fff}
+.weekbtn{display:none;background:var(--mark);color:#fff;border:0;border-radius:999px;padding:9px 16px;font:700 14px var(--sans)}
+
+/* main layout */
+.wrap{max-width:1400px;margin:0 auto;padding:22px 20px 60px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:28px;align-items:start}
+.count{font:700 13px var(--sans);color:var(--muted);margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px}
+.card{position:relative;background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;cursor:grab;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,30,80,.10)}
+.card.dragging{opacity:.5}
+.card .ph{aspect-ratio:4/3;background:var(--soft);position:relative;overflow:hidden}
+.card .ph img{width:100%;height:100%;object-fit:cover}
+.card .meth{position:absolute;left:10px;top:10px;padding:4px 9px;border-radius:var(--r-sm)}
+.m-slow{background:var(--mark);color:#fff}.m-oven{background:var(--oliver);color:#000}
+.card .body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h3{font:700 19px/1.2 var(--sans);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.card p{margin:0;font-size:15px;color:var(--muted);line-height:1.45}
+.meta{display:flex;gap:14px;font:400 13px var(--sans);color:var(--muted);margin-top:auto;padding-top:4px}
+.meta b{color:var(--ink)}
+.add{position:absolute;right:10px;top:10px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:var(--mark);font:700 24px/1 var(--sans);box-shadow:0 2px 8px rgba(0,0,0,.18);display:grid;place-items:center}
+.add.on{background:var(--jade);color:#fff}
+.card .open{all:unset;cursor:pointer;display:flex;flex-direction:column;flex:1}
+.card .open:focus-visible{outline:3px solid var(--mark);outline-offset:-3px}
+.inspo{font:400 12px var(--sans);color:var(--muted)}
+
+/* week planner */
+.week{position:sticky;top:76px;border:1px solid var(--line);border-radius:var(--r-lg);background:#fff;overflow:hidden;max-height:calc(100vh - 96px);display:flex;flex-direction:column}
+.week-h{background:var(--mark);color:#fff;padding:16px 18px}
+.week-h h2{font:700 20px var(--sans);margin:0}
+.week-h p{margin:2px 0 0;font-size:14px;opacity:.9}
+.stepper{display:flex;align-items:center;gap:10px;margin-top:12px;font:700 14px var(--sans)}
+.stepper button{width:34px;height:34px;border-radius:50%;border:2px solid #fff;background:transparent;color:#fff;font:700 18px/1 var(--sans)}
+.stepper output{min-width:24px;text-align:center;font-size:20px}
+.slots{padding:12px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.slot{display:flex;align-items:center;gap:10px;border:2px dashed var(--line);border-radius:var(--r-md);padding:6px;min-height:62px;transition:background .15s,border-color .15s}
+.slot.over{border-color:var(--mark);background:var(--mark-pale)}
+.slot.full{border-style:solid;border-color:var(--line)}
+.slot .n{font:700 12px var(--sans);color:var(--muted);width:44px;text-align:center;flex:none}
+.slot img{width:56px;height:46px;object-fit:cover;border-radius:6px;flex:none}
+.slot .t{font:700 14px/1.2 var(--sans);flex:1;min-width:0;cursor:pointer}
+.slot .e{font:400 13px var(--sans);color:var(--muted);flex:1}
+.slot .x{border:0;background:var(--soft);width:28px;height:28px;border-radius:50%;font:700 16px var(--sans);flex:none}
+.week-f{border-top:1px solid var(--line);padding:12px;display:grid;gap:8px}
+.btn{border:0;border-radius:999px;padding:12px 18px;font:700 15px var(--sans)}
+.btn-main{background:var(--jade);color:#000}
+.btn-main[disabled]{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:var(--soft);color:var(--ink)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* overlays */
+.ov{position:fixed;inset:0;z-index:50;background:rgba(10,18,40,.55);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:max(20px,env(safe-area-inset-top)) 16px 40px}
+.ov[hidden]{display:none}
+.sheet{background:#fff;border-radius:var(--r-lg);width:100%;max-width:980px;overflow:hidden;position:relative}
+.close{position:absolute;right:14px;top:14px;z-index:3;width:42px;height:42px;border-radius:50%;border:0;background:#fff;font:700 22px/1 var(--sans);box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.hero{position:relative}
+.hero img{width:100%;aspect-ratio:16/8;object-fit:cover}
+.credit{font:400 12px var(--sans);color:var(--muted);padding:6px 20px 0}
+.credit a{color:var(--muted)}
+.r-in{padding:18px 28px 30px}
+.r-in h2{font:700 clamp(26px,4vw,38px)/1.1 var(--sans);margin:6px 0 8px;letter-spacing:-.015em;text-wrap:balance}
+.lede{font-size:19px;margin:0 0 16px;max-width:60ch}
+.facts{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 20px}
+.fact{background:var(--soft);border-radius:var(--r-md);padding:10px 14px;font:400 13px var(--sans)}
+.fact b{display:block;font-size:18px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:0 0 18px}
+.tab{border:0;background:none;padding:10px 14px;font:700 15px var(--sans);color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--mark)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:28px}
+.ings{list-style:none;margin:0;padding:0}
+.ings li{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+.ings input{width:18px;height:18px;accent-color:var(--jade);flex:none;transform:translateY(3px)}
+.ings .q{font:700 15px var(--sans);min-width:76px}
+.ings label{display:flex;gap:10px;align-items:baseline;width:100%;cursor:pointer}
+.ings input:checked+span{opacity:.45;text-decoration:line-through}
+.steps-list{margin:0;padding:0;list-style:none;counter-reset:s}
+.steps-list li{counter-increment:s;display:grid;grid-template-columns:40px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.steps-list li::before{content:counter(s);width:32px;height:32px;border-radius:50%;background:var(--mark);color:#fff;font:700 15px/32px var(--sans);text-align:center}
+.steps-list b{font-family:var(--sans);display:block}
+.serve{margin-top:16px;padding:12px 14px;background:var(--rory-pale);border-radius:var(--r-md);font-size:15px}
+.r-actions{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+
+/* cook mode */
+.cook{display:grid;gap:16px}
+.dots{display:flex;gap:6px}
+.dots span{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.dots span.on{background:var(--mark)}
+.card-step{border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;min-height:220px;display:flex;flex-direction:column;gap:10px}
+.card-step .k{color:var(--mark)}
+.card-step h3{font:700 28px/1.15 var(--sans);margin:0}
+.card-step p{font-size:21px;line-height:1.5;margin:0;max-width:52ch}
+.nav{display:flex;justify-content:space-between;gap:10px}
+.nav .btn{min-width:130px}
+
+/* shopping */
+.shop .r-in h2{margin-top:0}
+.aisle{margin:0 0 18px}
+.aisle h4{margin:0 0 6px;padding:0 0 4px;border-bottom:2px solid var(--mark)}
+.meals-sum{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+.ms{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:4px 12px 4px 4px;font:700 13px var(--sans)}
+.ms img{width:30px;height:30px;border-radius:50%;object-fit:cover}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:999px;font:700 14px var(--sans);z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+footer{border-top:1px solid var(--line);padding:22px 20px 40px;font:400 13px var(--sans);color:var(--muted)}
+footer .in{max-width:1400px;margin:0 auto;display:grid;gap:6px}
+.tip{display:flex;gap:12px;align-items:flex-start;background:var(--jade-pale);border-radius:var(--r-md);padding:12px 16px;margin:0 0 18px;font-size:15px}
+
+@media (max-width:1000px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  .week{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:40;border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:80vh;transform:translateY(105%);transition:transform .25s;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .week.open{transform:none;box-shadow:0 -10px 30px rgba(0,0,0,.25)}
+  .weekbtn{display:inline-block}
+  .cols{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .chips{flex-wrap:nowrap;overflow-x:auto;width:100%;padding-bottom:2px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none}
+  .weekbtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:45;box-shadow:0 6px 18px rgba(0,0,0,.25);padding:14px 20px;font-size:15px}
+  .week.open ~ .weekbtn{display:none}
+  .tip{flex-direction:column;gap:4px}
+}
+@media (max-width:560px){
+  .mast img{height:72px}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .r-in{padding:16px 18px 24px}
+  .card-step{padding:18px;min-height:200px}
+  .card-step p{font-size:19px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="mast-in">
+    <img src="img/logo-stacked-white.svg" alt="The Adams Family">
+    <div class="mast-copy">
+      <h1>Ten minutes in the morning. Tea's ready when you're home.</h1>
+      <p>Fifty slow cooker and dump-and-bake dinners for five. Pick how many meals you need, drag them into your week, and get one shopping list with nothing doubled up.</p>
+    </div>
+  </div>
+</header>
+<div class="strip" aria-hidden="true"><span style="background:var(--mark)"></span><span style="background:var(--jade)"></span><span style="background:var(--arthur)"></span><span style="background:var(--oliver)"></span><span style="background:var(--rory)"></span></div>
+
+<div class="bar">
+  <div class="bar-in">
+    <label class="search"><span class="sr">Search recipes</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search: chicken, curry, sausage…" autocomplete="off"></label>
+    <div class="chips" id="chips" role="group" aria-label="Filter recipes"></div>
+    <button class="weekbtn" id="weekbtn" type="button">Your week · <span id="wbcount">0</span></button>
+  </div>
+</div>
+
+<main class="wrap">
+  <section aria-label="Recipes">
+    <div class="tip"><span class="label" style="color:#00563d;flex:none;padding-top:3px">How it works</span><span>Slow cooker meals go on before you leave. Oven bakes get built in the morning, covered and kept in the fridge, then go straight in the oven when you're home. Tap <b>+</b> or drag a recipe into your week.</span></div>
+    <p class="count" id="count"></p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <aside class="week" id="week" aria-label="Your week">
+    <div class="week-h">
+      <h2>Your week</h2>
+      <p>How many dinners do you need?</p>
+      <div class="stepper"><button type="button" id="minus" aria-label="Fewer meals">−</button><output id="n">5</output><button type="button" id="plus" aria-label="More meals">+</button><span>meals</span></div>
+    </div>
+    <div class="slots" id="slots"></div>
+    <div class="week-f">
+      <button class="btn btn-main" id="shopbtn" type="button">Shopping list</button>
+      <div class="row2"><button class="btn btn-ghost" id="fill" type="button">Fill the gaps</button><button class="btn btn-ghost" id="clear" type="button">Clear</button></div>
+    </div>
+  </aside>
+</main>
+
+<footer><div class="in">
+  <div>Recipes written for the Adams family, sized for two adults and three boys. No prawns or shellfish anywhere.</div>
+  <div>Photos are from <a href="https://unsplash.com/?utm_source=adams_family_kitchen&utm_medium=referral">Unsplash</a> and belong to the photographers credited under each one. Dump-and-bake ideas marked "Idea from Taming Twins" come from <a href="https://www.tamingtwins.com/category/collections/dump-and-bake-recipes/">Taming Twins</a>; the methods here are written in our own words.</div>
+</div></footer>
+
+<div class="ov" id="ov" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="dlgTitle"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
