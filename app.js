@@ -53,6 +53,7 @@ function imgTag(slug,w,cls){var src=photo(slug,w),r=BY[slug];
   return '<img src="'+src+'" alt="'+esc(r.title)+'" loading="lazy" class="'+(cls||'')+'" onerror="this.outerHTML=window.__ph(this.alt)">'}
 window.__ph=function(t){return '<div style="display:grid;place-items:center;width:100%;height:100%;min-height:100%;background:var(--mark-pale);font:700 15px var(--sans);color:var(--mark);padding:12px;text-align:center">'+t+'</div>'};
 function credit(slug){var p=P[slug];if(!p)return '';
+  if(p.src==='tt')return 'Photo: <a href="'+p.page+'" target="_blank" rel="noopener">Taming Twins</a>, used with permission';
   return 'Photo: <a href="'+p.byUrl+'?'+UTM+'" target="_blank" rel="noopener">'+esc(p.by)+'</a> on <a href="'+p.page+'?'+UTM+'" target="_blank" rel="noopener">Unsplash</a>'}
 
 /* ---------- quantities ---------- */
