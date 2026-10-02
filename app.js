@@ -11,6 +11,12 @@ var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'
 /* ---------- state ---------- */
 var S={n:5,plan:[null,null,null,null,null,null,null],filter:'All',q:''};
 try{var saved=JSON.parse(localStorage.getItem('afk-week')||'null');if(saved&&saved.plan){S.n=saved.n;S.plan=saved.plan.concat([null,null,null,null,null,null,null]).slice(0,7)}}catch(e){}
+var FAV=[];try{FAV=JSON.parse(localStorage.getItem('afk-fav')||'[]')||[]}catch(e){}
+function isFav(s){return FAV.indexOf(s)>=0}
+function saveFav(){try{localStorage.setItem('afk-fav',JSON.stringify(FAV))}catch(e){}}
+function toggleFav(s){var i=FAV.indexOf(s);if(i>=0)FAV.splice(i,1);else FAV.push(s);saveFav();
+  document.querySelectorAll('[data-fav="'+s+'"]').forEach(function(b){var on=isFav(s),r=BY[s];b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.setAttribute('aria-label',(on?'Remove ':'Add ')+r.title+(on?' from':' to')+' favourites');if(b.classList.contains('btn'))b.textContent=on?'★ Favourite':'☆ Favourite';else b.textContent=on?'★':'☆'});
+  if(S.filter==='Favourites')renderGrid();renderChips();toast(isFav(s)?'Added to favourites':'Removed from favourites')}
 function save(){try{localStorage.setItem('afk-week',JSON.stringify({n:S.n,plan:S.plan}))}catch(e){}}
 
 /* ---------- photos ---------- */
@@ -61,15 +67,17 @@ function merged(slugs){var M={};
   return out}
 
 /* ---------- filters ---------- */
-var FILTERS=['All','Slow cooker','Dump and bake','Chicken','Beef','Pork','Lamb','Fish','Vegetarian','Kids love it','Curry night','Freezes well'];
+var FILTERS=['All','Favourites','Slow cooker','Dump and bake','Chicken','Beef','Pork','Lamb','Fish','Vegetarian','Kids love it','Curry night','Freezes well'];
 function matches(r){var f=S.filter;
+  if(f==='Favourites')return isFav(r.slug)&&(!S.q||matchQ(r));
   if(f==='Slow cooker'&&r.method!=='slow')return false;
   if(f==='Dump and bake'&&r.method!=='oven')return false;
   if(f!=='All'&&f!=='Slow cooker'&&f!=='Dump and bake'&&r.tags.indexOf(f)<0)return false;
-  if(S.q){var hay=(r.title+' '+r.summary+' '+r.tags.join(' ')+' '+r.ings.map(function(x){return I[x[2]][0]}).join(' ')).toLowerCase();
+  return !S.q||matchQ(r)}
+function matchQ(r){{var hay=(r.title+' '+r.summary+' '+r.tags.join(' ')+' '+r.ings.map(function(x){return I[x[2]][0]}).join(' ')).toLowerCase();
     return S.q.toLowerCase().split(/\s+/).every(function(w){return hay.indexOf(w)>=0})}
   return true}
-function renderChips(){$('#chips').innerHTML=FILTERS.map(function(f){return '<button type="button" class="chip" aria-pressed="'+(S.filter===f)+'" data-f="'+f+'">'+f+'</button>'}).join('')}
+function renderChips(){$('#chips').innerHTML=FILTERS.map(function(f){return '<button type="button" class="chip" aria-pressed="'+(S.filter===f)+'" data-f="'+f+'">'+(f==='Favourites'?'★ Favourites'+(FAV.length?' ('+FAV.length+')':''):f)+'</button>'}).join('')}
 
 /* ---------- grid ---------- */
 function inPlan(slug){return S.plan.slice(0,S.n).indexOf(slug)>=0}
@@ -81,9 +89,10 @@ function card(r){var m=r.method==='slow'?'<span class="meth label m-slow">Slow c
    '<div class="body"><h3>'+esc(r.title)+'</h3><p>'+esc(r.summary)+'</p>'+
    '<div class="meta"><span><b>'+r.prep+' min</b> prep</span><span><b>'+esc(r.cook)+'</b></span></div>'+
    (r.inspired?'<div class="inspo">Idea from Taming Twins</div>':'')+'</div></button>'+
-   '<button type="button" class="add'+(on?' on':'')+'" data-add="'+r.slug+'" aria-label="'+(on?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' your week">'+(on?'✓':'+')+'</button></article>'}
+   '<button type="button" class="add'+(on?' on':'')+'" data-add="'+r.slug+'" aria-label="'+(on?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' your week">'+(on?'✓':'+')+'</button>'+
+   '<button type="button" class="fav'+(isFav(r.slug)?' on':'')+'" data-fav="'+r.slug+'" aria-pressed="'+isFav(r.slug)+'" aria-label="'+(isFav(r.slug)?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' favourites">'+(isFav(r.slug)?'★':'☆')+'</button></article>'}
 function renderGrid(){var list=R.filter(matches);
-  $('#grid').innerHTML=list.map(card).join('')||'<p>No recipes match that. Try another word or filter.</p>';
+  $('#grid').innerHTML=list.map(card).join('')||(S.filter==='Favourites'&&!FAV.length?'<p>No favourites yet. Tap the ☆ on any recipe to keep it here.</p>':'<p>No recipes match that. Try another word or filter.</p>');
   $('#count').textContent=list.length+' recipe'+(list.length===1?'':'s')+(S.filter!=='All'?' · '+S.filter:'')}
 
 /* ---------- week ---------- */
@@ -119,7 +128,7 @@ function recipeView(slug,tab){var r=BY[slug];if(!r)return;var step=0;
   show('<div class="hero">'+imgTag(slug,1400)+'</div><div class="credit">'+credit(slug)+(r.inspired?' · Idea from <a href="'+r.inspired+'" target="_blank" rel="noopener">Taming Twins</a>':'')+'</div>'+
    '<div class="r-in"><span class="label" style="color:var(--mark)">'+(r.method==='slow'?'Slow cooker':'Dump and bake')+'</span><h2 id="dlgTitle">'+esc(r.title)+'</h2><p class="lede">'+esc(r.summary)+'</p>'+
    '<div class="facts"><div class="fact"><b>'+r.prep+' min</b>morning prep</div><div class="fact"><b>'+esc(r.cook)+'</b>'+(r.method==='slow'?'then leave it':'at tea time')+'</div><div class="fact"><b>Serves 5</b>2 adults, 3 boys</div><div class="fact"><b>'+r.ings.length+'</b>ingredients</div></div>'+
-   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?'✓ In your week':'+ Add to your week')+'</button></div>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?'✓ In your week':'+ Add to your week')+'</button><button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+(isFav(slug)?'★ Favourite':'☆ Favourite')+'</button></div>'+
    '<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true" data-tab="all">Ingredients and method</button><button class="tab" role="tab" aria-selected="false" data-tab="cook">Step by step</button></div>'+
    '<div id="tabbody"></div></div>');
   function all(){$('#tabbody').innerHTML='<div class="cols"><div><h3 class="label" style="margin:0 0 6px">You need</h3>'+ings+'</div><div><h3 class="label" style="margin:0 0 6px">Method</h3>'+steps+'<div class="serve"><b style="font-family:var(--sans)">Serve with:</b> '+esc(r.serve)+'</div></div></div>'}
@@ -166,7 +175,8 @@ function toMD(slugs,m){var d=new Date(),base=location.origin+location.pathname;
 var tt;function toast(t){var el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){el.classList.remove('on')},1800)}
 
 /* ---------- events ---------- */
-document.addEventListener('click',function(e){var t=e.target.closest('[data-open],[data-add],[data-rm],[data-close],[data-f]');
+document.addEventListener('click',function(e){var fv=e.target.closest('[data-fav]');if(fv){e.preventDefault();e.stopPropagation();toggleFav(fv.dataset.fav);return}
+  var t=e.target.closest('[data-open],[data-add],[data-rm],[data-close],[data-f]');
   if(e.target===$('#ov')){hide();return}
   if(!t)return;
   if(t.closest('#sheet')&&!t.hasAttribute('data-close'))return;
