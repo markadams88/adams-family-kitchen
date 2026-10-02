@@ -10,6 +10,7 @@ var DAY3=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 var $=function(s,el){return (el||document).querySelector(s)};
 var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
 var IC={so:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',sf:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',tick:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'};
+function btnI(svg){return svg.replace('<svg','<svg class="ico"')}
 function starI(on){return on?IC.sf:IC.so}
 function isSlug(s){return !!(s&&BY[s])}
 
@@ -189,7 +190,7 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
   show('<div class="hero">'+imgTag(slug,1400)+'</div><div class="credit">'+credit(slug)+(r.inspired?'. Idea from <a href="'+r.inspired+'" target="_blank" rel="noopener">Taming Twins</a>':'')+'</div>'+
    '<div class="r-in"><span class="kick">'+(r.method==='slow'?'Slow cooker':'Dump and bake')+'</span><h2 id="dlgTitle">'+esc(r.title)+'</h2><p class="lede">'+esc(r.summary)+'</p>'+when+
    '<div class="facts"><div class="fact"><b>'+r.prep+' min</b>morning prep</div><div class="fact"><b>'+esc(r.cook)+'</b>'+(r.method==='slow'?'then leave it':'at tea time')+'</div><div class="fact"><b>Serves 5</b>2 adults, 3 boys</div><div class="fact"><b>'+r.ings.length+'</b>ingredients</div></div>'+
-   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?'✓ In '+weekName(iso).toLowerCase():'+ Add to '+weekName(iso).toLowerCase())+'</button><button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+starI(isFav(slug)).replace('<svg','<svg class="ico"')+(isFav(slug)?'Favourite':'Add to favourites')+'</button></div>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?btnI(IC.tick)+'In '+weekName(iso).toLowerCase():btnI(IC.plus)+'Add to '+weekName(iso).toLowerCase())+'</button><button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+starI(isFav(slug)).replace('<svg','<svg class="ico"')+(isFav(slug)?'Favourite':'Add to favourites')+'</button></div>'+
    '<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="false" data-tab="cook">Step by step</button><button class="tab" role="tab" aria-selected="true" data-tab="all">Everything on one page</button></div>'+
    '<div id="tabbody"></div></div>');
   /* cards: 0 = what you need, 1..n = the steps, last = serve */
@@ -211,7 +212,7 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
     if(t.hasAttribute('data-cook')){step=0;setTab('cook');$('.tabs').scrollIntoView({behavior:'smooth',block:'start'})}
     if(t.hasAttribute('data-next')){if(step<cards.length-1){step++;cook();$('.tabs').scrollIntoView({block:'start'})}else{setTab('all');toast('Enjoy your tea')}}
     if(t.hasAttribute('data-prev')&&step>0){step--;cook()}
-    if(t.dataset.add){addTo(slug);var d2=dayIn(slug,iso);t.textContent=d2>=0?'✓ On '+DAYS[d2]:'+ Add to '+weekName(iso).toLowerCase()}};
+    if(t.dataset.add){addTo(slug);var d2=dayIn(slug,iso);t.innerHTML=d2>=0?btnI(IC.tick)+'On '+DAYS[d2]:btnI(IC.plus)+'Add to '+weekName(iso).toLowerCase()}};
   keyNav=function(e){if(curTab!=='cook')return;if(e.key==='ArrowRight'&&step<cards.length-1){step++;cook()}if(e.key==='ArrowLeft'&&step>0){step--;cook()}};
   history.replaceState(null,'','#'+slug)}
 
