@@ -9,6 +9,8 @@ var DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
 var DAY3=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 var $=function(s,el){return (el||document).querySelector(s)};
 var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var IC={so:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',sf:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',tick:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'};
+function starI(on){return on?IC.sf:IC.so}
 function isSlug(s){return !!(s&&BY[s])}
 
 /* ---------- dates ---------- */
@@ -40,7 +42,7 @@ var FAV=[];try{FAV=JSON.parse(localStorage.getItem('afk-fav')||'[]')||[]}catch(e
 function isFav(s){return FAV.indexOf(s)>=0}
 function saveFav(){try{localStorage.setItem('afk-fav',JSON.stringify(FAV))}catch(e){}}
 function toggleFav(s){var i=FAV.indexOf(s);if(i>=0)FAV.splice(i,1);else FAV.push(s);saveFav();
-  document.querySelectorAll('[data-fav="'+s+'"]').forEach(function(b){var on=isFav(s),r=BY[s];b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.setAttribute('aria-label',(on?'Remove ':'Add ')+r.title+(on?' from':' to')+' favourites');if(b.classList.contains('btn'))b.textContent=on?'★ Favourite':'☆ Favourite';else b.textContent=on?'★':'☆'});
+  document.querySelectorAll('[data-fav="'+s+'"]').forEach(function(b){var on=isFav(s),r=BY[s];b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.setAttribute('aria-label',(on?'Remove ':'Add ')+r.title+(on?' from':' to')+' favourites');if(b.classList.contains('btn'))b.innerHTML=starI(on).replace('<svg','<svg class="ico"')+(on?'Favourite':'Add to favourites');else b.innerHTML=starI(on)});
   if(S.filter==='Favourites')renderGrid();renderChips();toast(isFav(s)?'Added to favourites':'Removed from favourites')}
 
 /* ---------- photos ---------- */
@@ -109,7 +111,8 @@ function merged(iso){var U=usage(iso),out={};AISLES.forEach(function(a){out[a[0]
   return out}
 
 /* ---------- filters ---------- */
-var FILTERS=['All','Favourites','Slow cooker','Dump and bake','Chicken','Beef','Pork','Lamb','Fish','Vegetarian','Kids love it','Curry night','Freezes well'];
+var METHODS=['All','Slow cooker','Dump and bake','Favourites'];
+var TAGS=['Chicken','Beef','Pork','Lamb','Fish','Vegetarian','Kids love it','Curry night','Freezes well'];
 function matches(r){var f=S.filter;
   if(f==='Favourites')return isFav(r.slug)&&(!S.q||matchQ(r));
   if(f==='Slow cooker'&&r.method!=='slow')return false;
@@ -118,23 +121,24 @@ function matches(r){var f=S.filter;
   return !S.q||matchQ(r)}
 function matchQ(r){var hay=(r.title+' '+r.summary+' '+r.tags.join(' ')+' '+r.ings.map(function(x){return I[x[2]][0]}).join(' ')).toLowerCase();
   return S.q.toLowerCase().split(/\s+/).every(function(w){return hay.indexOf(w)>=0})}
-function renderChips(){$('#chips').innerHTML=FILTERS.map(function(f){return '<button type="button" class="chip" aria-pressed="'+(S.filter===f)+'" data-f="'+f+'">'+(f==='Favourites'?'★ Favourites'+(FAV.length?' ('+FAV.length+')':''):f)+'</button>'}).join('')}
+function renderChips(){$('#chips-m').innerHTML=METHODS.map(function(f){return '<button type="button" aria-pressed="'+(S.filter===f)+'" data-f="'+f+'">'+f+(f==='Favourites'&&FAV.length?'<span class="cnt">'+FAV.length+'</span>':'')+'</button>'}).join('');
+  $('#chips').innerHTML=TAGS.map(function(f){return '<button type="button" aria-pressed="'+(S.filter===f)+'" data-f="'+(S.filter===f?'All':f)+'">'+f+'</button>'}).join('')}
 
 /* ---------- grid ---------- */
 function dayIn(slug,iso){return days(iso).indexOf(slug)}
-function card(r){var m=r.method==='slow'?'<span class="meth label m-slow">Slow cooker</span>':'<span class="meth label m-oven">Dump &amp; bake</span>';
+function card(r){var m=r.method==='slow'?'<span class="meth m-slow">Slow cooker</span>':'<span class="meth m-oven">Dump and bake</span>';
   var di=dayIn(r.slug),on=di>=0;
   return '<article class="card" draggable="true" data-slug="'+r.slug+'">'+
    '<button type="button" class="open" data-open="'+r.slug+'" aria-label="Open '+esc(r.title)+'">'+
-   '<div class="ph">'+imgTag(r.slug,600)+m+(on?'<span class="onday label">'+DAY3[di]+'</span>':'')+'</div>'+
+   '<div class="ph">'+imgTag(r.slug,600)+m+(on?'<span class="onday">'+DAYS[di]+'</span>':'')+'</div>'+
    '<div class="body"><h3>'+esc(r.title)+'</h3><p>'+esc(r.summary)+'</p>'+
    '<div class="meta"><span><b>'+r.prep+' min</b> prep</span><span><b>'+esc(r.cook)+'</b></span></div>'+
    (r.inspired?'<div class="inspo">Idea from Taming Twins</div>':'')+'</div></button>'+
-   '<button type="button" class="add'+(on?' on':'')+'" data-add="'+r.slug+'" aria-label="'+(on?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' the week">'+(on?'✓':'+')+'</button>'+
-   '<button type="button" class="fav'+(isFav(r.slug)?' on':'')+'" data-fav="'+r.slug+'" aria-pressed="'+isFav(r.slug)+'" aria-label="'+(isFav(r.slug)?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' favourites">'+(isFav(r.slug)?'★':'☆')+'</button></article>'}
+   '<button type="button" class="add'+(on?' on':'')+'" data-add="'+r.slug+'" aria-label="'+(on?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' the week">'+(on?IC.tick:IC.plus)+'</button>'+
+   '<button type="button" class="fav'+(isFav(r.slug)?' on':'')+'" data-fav="'+r.slug+'" aria-pressed="'+isFav(r.slug)+'" aria-label="'+(isFav(r.slug)?'Remove '+esc(r.title)+' from':'Add '+esc(r.title)+' to')+' favourites">'+starI(isFav(r.slug))+'</button></article>'}
 function renderGrid(){var list=R.filter(matches);
-  $('#grid').innerHTML=list.map(card).join('')||(S.filter==='Favourites'&&!FAV.length?'<p>No favourites yet. Tap the ☆ on any recipe to keep it here.</p>':'<p>No recipes match that. Try another word or filter.</p>');
-  $('#count').textContent=list.length+' recipe'+(list.length===1?'':'s')+(S.filter!=='All'?' · '+S.filter:'')}
+  $('#grid').innerHTML=list.map(card).join('')||(S.filter==='Favourites'&&!FAV.length?'<p>No favourites yet. Star a recipe and it will show up here.</p>':'<p>No recipes match that. Try another word or filter.</p>');
+  $('#count').textContent=list.length+' recipe'+(list.length===1?'':'s')+(S.q?' matching "'+S.q+'"':'')}
 
 /* ---------- week planner ---------- */
 function renderWeek(){var d=days(),iso=S.wk;
@@ -144,12 +148,12 @@ function renderWeek(){var d=days(),iso=S.wk;
     var lab='<span class="n'+(today?' today':'')+'"><b>'+DAY3[i]+'</b>'+dt.getDate()+'</span>';
     if(isSlug(s))h+='<div class="slot full" data-slot="'+i+'" draggable="true" data-move="'+i+'">'+lab+
       '<div class="th">'+imgTag(s,160)+'</div><span class="t" data-open="'+s+'" data-day="'+i+'">'+esc(BY[s].title)+'</span><button type="button" class="x" data-rm="'+i+'" aria-label="Remove '+esc(BY[s].title)+'">×</button></div>';
-    else if(s==='off')h+='<div class="slot off" data-slot="'+i+'">'+lab+'<span class="e">Night off, no cooking</span><button type="button" class="x" data-rm="'+i+'" aria-label="Undo night off">↺</button></div>';
-    else if(past(i,iso))h+='<div class="slot past" data-slot="'+i+'">'+lab+'<span class="e">Gone by</span></div>';
-    else h+='<div class="slot" data-slot="'+i+'">'+lab+'<span class="e">Drag a recipe here or tap +</span><button type="button" class="offb" data-off="'+i+'">Night off</button></div>'}
+    else if(s==='off')h+='<div class="slot off" data-slot="'+i+'">'+lab+'<span class="e">Night off</span><button type="button" class="x" data-rm="'+i+'" aria-label="Undo night off">×</button></div>';
+    else if(past(i,iso))h+='<div class="slot past" data-slot="'+i+'">'+lab+'<span class="e"></span></div>';
+    else h+='<div class="slot" data-slot="'+i+'">'+lab+'<span class="e">Add a dinner</span><button type="button" class="offb" data-off="'+i+'">Night off</button></div>'}
   $('#slots').innerHTML=h;
   var c=meals().length,off=d.filter(function(x){return x==='off'}).length;
-  $('#wksum').textContent=c?c+' dinner'+(c>1?'s':'')+' planned'+(off?' · '+off+' night'+(off>1?'s':'')+' off':''):'Nothing planned yet';
+  $('#wksum').textContent=c?c+' dinner'+(c>1?'s':'')+' planned'+(off?', '+off+' night'+(off>1?'s':'')+' off':''):'Nothing planned yet';
   $('#wbcount').textContent=c;
   ['#shopbtn','#mdbtn','#pdfbtn','#asdabtn'].forEach(function(b){$(b).disabled=!c});
   $('#shopbtn').textContent=c?'Shopping list for '+c+' dinner'+(c>1?'s':''):'Shopping list';
@@ -182,10 +186,10 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
   var steps='<ol class="steps-list">'+r.steps.map(function(s){return '<li><div><b>'+esc(s[0])+'</b>'+esc(s[1])+'</div></li>'}).join('')+'</ol>';
   var when=day>=0?'<div class="when"><span class="label">On the menu</span><b>'+fmt(dateOf(iso,day),{weekday:'long',day:'numeric',month:'long'})+'</b>'+(shared?'<span>'+shared+' ingredient'+(shared>1?'s are':' is')+' shared with other dinners this week. The yellow notes tell you how much to use so you don\'t run short later in the week.</span>':'')+'</div>':'';
   var on=day>=0;
-  show('<div class="hero">'+imgTag(slug,1400)+'</div><div class="credit">'+credit(slug)+(r.inspired?' · Idea from <a href="'+r.inspired+'" target="_blank" rel="noopener">Taming Twins</a>':'')+'</div>'+
-   '<div class="r-in"><span class="label" style="color:var(--mark)">'+(r.method==='slow'?'Slow cooker':'Dump and bake')+'</span><h2 id="dlgTitle">'+esc(r.title)+'</h2><p class="lede">'+esc(r.summary)+'</p>'+when+
+  show('<div class="hero">'+imgTag(slug,1400)+'</div><div class="credit">'+credit(slug)+(r.inspired?'. Idea from <a href="'+r.inspired+'" target="_blank" rel="noopener">Taming Twins</a>':'')+'</div>'+
+   '<div class="r-in"><span class="kick">'+(r.method==='slow'?'Slow cooker':'Dump and bake')+'</span><h2 id="dlgTitle">'+esc(r.title)+'</h2><p class="lede">'+esc(r.summary)+'</p>'+when+
    '<div class="facts"><div class="fact"><b>'+r.prep+' min</b>morning prep</div><div class="fact"><b>'+esc(r.cook)+'</b>'+(r.method==='slow'?'then leave it':'at tea time')+'</div><div class="fact"><b>Serves 5</b>2 adults, 3 boys</div><div class="fact"><b>'+r.ings.length+'</b>ingredients</div></div>'+
-   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>▶ Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?'✓ In '+weekName(iso).toLowerCase():'+ Add to '+weekName(iso).toLowerCase())+'</button><button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+(isFav(slug)?'★ Favourite':'☆ Favourite')+'</button></div>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?'✓ In '+weekName(iso).toLowerCase():'+ Add to '+weekName(iso).toLowerCase())+'</button><button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+starI(isFav(slug)).replace('<svg','<svg class="ico"')+(isFav(slug)?'Favourite':'Add to favourites')+'</button></div>'+
    '<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="false" data-tab="cook">Step by step</button><button class="tab" role="tab" aria-selected="true" data-tab="all">Everything on one page</button></div>'+
    '<div id="tabbody"></div></div>');
   /* cards: 0 = what you need, 1..n = the steps, last = serve */
@@ -193,11 +197,11 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
     .concat(r.steps.map(function(s){return {h:s[0],body:'<p>'+esc(s[1])+'</p>'}}))
     .concat([{k:'Ready',h:'Serve it up',body:'<p>Serve with '+esc(r.serve.charAt(0).toLowerCase()+r.serve.slice(1))+'.</p>'}]);
   var step=0,curTab;
-  function all(){$('#tabbody').innerHTML='<div class="cols"><div><h3 class="label" style="margin:0 0 6px">You need</h3>'+ingList()+'</div><div><h3 class="label" style="margin:0 0 6px">Method</h3>'+steps+'<div class="serve"><b style="font-family:var(--sans)">Serve with:</b> '+esc(r.serve)+'</div></div></div>'}
+  function all(){$('#tabbody').innerHTML='<div class="cols"><div><h3 class="label">You need</h3>'+ingList()+'</div><div><h3 class="label">Method</h3>'+steps+'<div class="serve"><b style="font-family:var(--sans)">Serve with:</b> '+esc(r.serve)+'</div></div></div>'}
   function cook(){var n=cards.length,c=cards[step];
     $('#tabbody').innerHTML='<div class="cook"><div class="dots">'+cards.map(function(_,i){return '<button type="button" class="'+(i<=step?'on':'')+'" data-go="'+i+'" aria-label="Go to '+(i===0?'what you need':i===n-1?'serving':'step '+i)+'"></button>'}).join('')+'</div>'+
      '<div class="card-step'+(step===0?' first':'')+'" aria-live="polite"><div class="sp">'+imgTag(slug,900)+'<span class="badge label">'+(step===0?'Start':step===n-1?'Done':'Step '+step+' of '+(n-2))+'</span></div>'+
-     '<div class="sc"><span class="label k">'+esc(c.k||('Step '+step))+'</span><h3>'+esc(c.h)+'</h3>'+c.body+'</div></div>'+
+     '<div class="sc">'+(c.k?'<span class="label k">'+esc(c.k)+'</span>':'')+'<h3>'+esc(c.h)+'</h3>'+c.body+'</div></div>'+
      '<div class="nav"><button type="button" class="btn btn-ghost" data-prev '+(step?'':'disabled')+'>Back</button><button type="button" class="btn btn-main" data-next>'+(step===0?'Start step 1':step===n-1?'Done, enjoy it':step===n-2?'Last bit':'Next step')+'</button></div></div>'}
   function setTab(t){[].forEach.call(document.querySelectorAll('.tab'),function(b){b.setAttribute('aria-selected',b.dataset.tab===t)});curTab=t;t==='cook'?cook():all()}
   setTab(opt.tab||'all');
@@ -212,15 +216,15 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
   history.replaceState(null,'','#'+slug)}
 
 /* ---------- shopping list for a week ---------- */
-function splitText(x){return x.split.map(function(p){return DAY3[p.day]+' '+shortTitle(p.slug)+': '+p.a}).join(' · ')}
+function splitText(x){return x.split.map(function(p){return DAY3[p.day]+' '+shortTitle(p.slug)+': '+p.a}).join('; ')}
 function shopView(iso){iso=iso||S.wk;var ms=meals(iso);if(!ms.length)return;var m=merged(iso);
   var shop=AISLES.filter(function(a){return !CHECK[a[0]]&&m[a[0]].length}),cup=AISLES.filter(function(a){return CHECK[a[0]]&&m[a[0]].length});
-  function block(a){return '<div class="aisle"><h4 class="label">'+a[1]+'</h4><ul class="ings">'+m[a[0]].map(function(x){return '<li><label><input type="checkbox"><span><span class="q">'+esc(x.q)+'</span> '+esc(x.name)+(x.split?'<span class="split">'+esc(splitText(x))+'</span>':'')+'</span></label></li>'}).join('')+'</ul></div>'}
-  show('<div class="r-in shop"><span class="label" style="color:var(--mark)">Shopping list · '+weekName(iso)+'</span><h2 id="dlgTitle">'+ms.length+' dinner'+(ms.length>1?'s':'')+', '+weekRange(iso)+'</h2>'+
+  function block(a){return '<div class="aisle"><h4>'+a[1]+'</h4><ul class="ings">'+m[a[0]].map(function(x){return '<li><label><input type="checkbox"><span><span class="q">'+esc(x.q)+'</span> '+esc(x.name)+(x.split?'<span class="split">'+esc(splitText(x))+'</span>':'')+'</span></label></li>'}).join('')+'</ul></div>'}
+  show('<div class="r-in shop"><span class="kick">Shopping list for '+weekName(iso).toLowerCase()+'</span><h2 id="dlgTitle">'+ms.length+' dinner'+(ms.length>1?'s':'')+', '+weekRange(iso)+'</h2>'+
    '<div class="meals-sum">'+ms.map(function(x){return '<button type="button" class="ms" data-goto="'+x.slug+'" data-day="'+x.day+'"><span class="msi">'+imgTag(x.slug,80)+'</span><span><small>'+DAY3[x.day]+'</small> '+esc(BY[x.slug].title)+'</span></button>'}).join('')+'</div>'+
-   '<div class="r-actions"><button type="button" class="btn btn-main" data-asda>🛒 Send to Claude for ASDA</button><button type="button" class="btn btn-ghost" data-pdf>Download PDF</button><button type="button" class="btn btn-ghost" data-md>Download for the shopping agent (.md)</button><button type="button" class="btn btn-ghost" data-copy>Copy list</button></div>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-asda>Send to Claude for ASDA</button><button type="button" class="btn btn-ghost" data-pdf>Download PDF</button><button type="button" class="btn btn-ghost" data-md>Download for the shopping agent (.md)</button><button type="button" class="btn btn-ghost" data-copy>Copy list</button></div>'+
    '<p class="note">Everything is added up across the week, so you only buy it once. Where an item is shared, the grey line shows how it splits by day, and each recipe tells you how much to use. Weekly essentials are not included.</p>'+
-   '<div class="cols"><div>'+shop.map(block).join('')+'</div><div><div class="tip" style="background:var(--rory-pale)"><span>Check the cupboard first. You probably have most of these.</span></div>'+cup.map(block).join('')+'</div></div></div>');
+   '<div class="cols"><div>'+shop.map(block).join('')+'</div><div><div class="cup">Check the cupboard first. You probably have most of these.</div>'+cup.map(block).join('')+'</div></div></div>');
   $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
     if(t.dataset.goto)recipeView(t.dataset.goto,{wk:iso,day:+t.dataset.day});
     if(t.hasAttribute('data-asda'))asdaView(iso);
@@ -237,8 +241,8 @@ function planView(){var list=[],seen={};
   var rows=list.map(function(w){var d=days(w),c=meals(w).length;
     return '<div class="cal-row'+(w===S.wk?' cur':'')+(w===THIS?' now':'')+'"><button type="button" class="cal-w" data-wk="'+w+'"><b>'+weekName(w)+'</b><span>'+weekRange(w)+'</span><small>'+(c?c+' dinner'+(c>1?'s':''):'Nothing planned')+'</small></button>'+
       d.map(function(s,i){return '<button type="button" class="cal-d'+(isSlug(s)?' has':'')+(s==='off'?' off':'')+'" data-wk="'+w+'" data-cd="'+i+'" title="'+(isSlug(s)?esc(BY[s].title):s==='off'?'Night off':'Empty')+'"><span class="dn">'+dateOf(w,i).getDate()+'</span>'+(isSlug(s)?imgTag(s,120)+'<span class="ct">'+esc(shortTitle(s))+'</span>':s==='off'?'<span class="ct">Off</span>':'')+'</button>'}).join('')+
-      '<div class="cal-a">'+(c?'<button type="button" class="mini" data-shop="'+w+'">List</button><button type="button" class="mini" data-wmd="'+w+'">.md</button><button type="button" class="mini" data-wpdf="'+w+'">PDF</button><button type="button" class="mini" data-wasda="'+w+'">🛒 ASDA</button>':'')+'</div></div>'}).join('');
-  show('<div class="r-in"><span class="label" style="color:var(--mark)">Plan ahead</span><h2 id="dlgTitle">Your weeks</h2><p class="note">Tap a week to plan it, or tap a dinner to open it. Plan as far ahead as you like.</p>'+
+      '<div class="cal-a">'+(c?'<button type="button" class="mini" data-shop="'+w+'">List</button><button type="button" class="mini" data-wmd="'+w+'">.md</button><button type="button" class="mini" data-wpdf="'+w+'">PDF</button><button type="button" class="mini" data-wasda="'+w+'">ASDA</button>':'')+'</div></div>'}).join('');
+  show('<div class="r-in"><span class="kick">Plan ahead</span><h2 id="dlgTitle">Your weeks</h2><p class="note">Tap a week to plan it, or tap a dinner to open it. Plan as far ahead as you like.</p>'+
    '<div class="cal"><div class="cal-row head"><span></span>'+DAY3.map(function(d){return '<span class="label">'+d+'</span>'}).join('')+'<span></span></div>'+rows+'</div>'+
    '<div class="r-actions" style="margin-top:16px"><button type="button" class="btn btn-ghost" data-more>Show 12 more weeks</button></div></div>',true);
   $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
@@ -270,7 +274,7 @@ function sendToClaude(iso,where){if(!meals(iso).length){toast('Nothing planned t
   if(where==='app'){location.href='claude://cowork/new?q='+q;toast('Opening the Claude app. Press send there.')}
   else{window.open('https://claude.ai/new?q='+q,'_blank','noopener');toast('Opening Claude. Press send there.')}}
 function asdaView(iso){iso=iso||S.wk;if(!meals(iso).length){toast('Nothing planned that week');return}
-  show('<div class="r-in"><span class="label" style="color:var(--mark)">ASDA shop · '+weekName(iso)+'</span><h2 id="dlgTitle">Send this week to Claude</h2>'+
+  show('<div class="r-in"><span class="kick">ASDA shop for '+weekName(iso).toLowerCase()+'</span><h2 id="dlgTitle">Send this week to Claude</h2>'+
    '<p class="lede">Claude opens with your combined list ready to go. Press send and it fills your ASDA trolley in Chrome, then tells you what it picked. You check out and pay yourself.</p>'+
    '<div class="r-actions"><button type="button" class="btn btn-main" data-send="app">Open in the Claude app</button><button type="button" class="btn btn-ghost" data-send="web">Open Claude on the web</button></div>'+
    '<p class="note">Before you send: be signed in to ASDA in Chrome, and have Claude in Chrome switched on. The list is also copied, so you can paste it into any Claude chat if the button does not open.</p>'+
@@ -278,7 +282,7 @@ function asdaView(iso){iso=iso||S.wk;if(!meals(iso).length){toast('Nothing plann
   $('#sheet').onclick=function(e){var t=e.target.closest('button');if(t&&t.dataset.send)sendToClaude(iso,t.dataset.send)}}
 
 function toMD(iso){var ms=meals(iso),m=merged(iso),U=usage(iso),base=location.origin+location.pathname,d=days(iso);
-  var L=['# Adams family dinners: week of '+fmt(fromIso(iso),{day:'numeric',month:'long',year:'numeric'}),'',weekRange(iso)+' · '+ms.length+' dinners · feeds 5 (2 adults, 3 young boys)','','## Menu',''];
+  var L=['# Adams family dinners: week of '+fmt(fromIso(iso),{day:'numeric',month:'long',year:'numeric'}),'',weekRange(iso)+', '+ms.length+' dinners, feeds 5 (2 adults, 3 young boys)','','## Menu',''];
   for(var i=0;i<7;i++){var s=d[i],dt=fmt(dateOf(iso,i),{weekday:'long',day:'numeric',month:'short'});
     if(isSlug(s)){var r=BY[s];L.push('- **'+dt+':** '+r.title+' ('+(r.method==='slow'?'slow cooker, '+r.cook:'dump and bake, '+r.cook)+', '+r.prep+' min prep) '+base+'#'+s)}
     else if(s==='off')L.push('- **'+dt+':** night off')}
@@ -294,10 +298,10 @@ function toMD(iso){var ms=meals(iso),m=merged(iso),U=usage(iso),base=location.or
   return L.join('\n')}
 
 function pdfHTML(iso){var ms=meals(iso),m=merged(iso),U=usage(iso),d=days(iso);
-  var h='<div class="pdf"><div class="pdf-head"><img src="img/logo-stacked-white.png" alt=""><div><div class="pk">Dinners for the week</div><div class="pt">'+fmt(fromIso(iso),{day:'numeric',month:'long',year:'numeric'})+'</div><div class="ps">'+weekRange(iso)+' · '+ms.length+' dinners · feeds 2 adults and 3 boys</div></div></div><div class="pdf-strip"><span style="background:#1E5EFF"></span><span style="background:#00A878"></span><span style="background:#FF5A4E"></span><span style="background:#FF9A3C"></span><span style="background:#FFD84D"></span></div>';
+  var h='<div class="pdf"><div class="pdf-head"><img src="img/logo-stacked-white.png" alt=""><div><div class="pk">Dinners for the week</div><div class="pt">'+fmt(fromIso(iso),{day:'numeric',month:'long',year:'numeric'})+'</div><div class="ps">'+weekRange(iso)+', '+ms.length+' dinners, feeds 2 adults and 3 boys</div></div></div><div class="pdf-strip"><span style="background:#1E5EFF"></span><span style="background:#00A878"></span><span style="background:#FF5A4E"></span><span style="background:#FF9A3C"></span><span style="background:#FFD84D"></span></div>';
   h+='<h2>Menu</h2><div class="pdf-menu">';
   for(var i=0;i<7;i++){var s=d[i];h+='<div class="pm pdf-avoid'+(isSlug(s)?'':' empty')+'"><div class="pd"><b>'+DAY3[i]+'</b>'+dateOf(iso,i).getDate()+'</div>'+
-    (isSlug(s)?'<img src="'+photo(s,300)+'" alt=""><div class="pi"><b>'+esc(BY[s].title)+'</b><span>'+(BY[s].method==='slow'?'Slow cooker':'Dump and bake')+' · '+BY[s].prep+' min prep · '+esc(BY[s].cook)+'</span></div>':'<div class="pi"><span>'+(s==='off'?'Night off':'Nothing planned')+'</span></div>')+'</div>'}
+    (isSlug(s)?'<img src="'+photo(s,300)+'" alt=""><div class="pi"><b>'+esc(BY[s].title)+'</b><span>'+(BY[s].method==='slow'?'Slow cooker':'Dump and bake')+', '+BY[s].prep+' min prep, '+esc(BY[s].cook)+'</span></div>':'<div class="pi"><span>'+(s==='off'?'Night off':'Nothing planned')+'</span></div>')+'</div>'}
   h+='</div>';
   function blk(a){return '<div class="pa pdf-avoid"><h4>'+a[1]+'</h4>'+m[a[0]].map(function(x){return '<div class="pr"><span class="bx"></span><span><b>'+esc(x.q)+'</b> '+esc(x.name)+(x.split?'<em>'+esc(splitText(x))+'</em>':'')+'</span></div>'}).join('')+'</div>'}
   h+='<h2 class="pb">Shopping list</h2><p class="pn">Everything is combined, so each item is bought once. The small grey line shows how a shared item splits across the week.</p><div class="pcols"><div>'+AISLES.filter(function(a){return !CHECK[a[0]]&&m[a[0]].length}).map(blk).join('')+'</div><div><div class="pcheck">Check the cupboard first</div>'+AISLES.filter(function(a){return CHECK[a[0]]&&m[a[0]].length}).map(blk).join('')+'</div></div>';
@@ -352,7 +356,6 @@ $('#mdbtn').onclick=function(){downloadMD(S.wk)};
 $('#asdabtn').onclick=function(){asdaView(S.wk)};
 $('#pdfbtn').onclick=function(){downloadPDF(S.wk,this)};
 $('#planbtn').onclick=function(){planView()};
-$('#planbtn2').onclick=function(){planView()};
 $('#weekbtn').onclick=function(){$('#week').classList.toggle('open')};
 $('#wkclose').onclick=function(){$('#week').classList.remove('open')};
 
