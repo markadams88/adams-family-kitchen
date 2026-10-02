@@ -67,7 +67,7 @@ img{max-width:100%;display:block}
 .card .ph img{width:100%;height:100%;object-fit:cover;transition:transform .35s ease}
 .card .open:hover .ph img{transform:scale(1.03)}
 .card .meth{position:absolute;left:10px;bottom:10px;padding:3px 8px;border-radius:var(--r-sm);font:700 12px/1.4 var(--sans)}
-.m-slow{background:var(--mark);color:#fff}.m-oven{background:var(--oliver);color:#000}
+.m-slow{background:var(--mark);color:#fff}.m-oven{background:var(--oliver);color:#000}.m-family{background:var(--jade);color:#000}
 .card .onday{position:absolute;right:10px;bottom:10px;background:var(--jade);color:#000;padding:3px 8px;border-radius:var(--r-sm);font:700 12px/1.4 var(--sans)}
 .card .body{padding:12px 2px 0;display:flex;flex-direction:column;gap:5px;flex:1}
 .card h3{font:700 18px/1.2 var(--sans);margin:0;letter-spacing:-.01em;text-wrap:balance}
@@ -120,6 +120,13 @@ img{max-width:100%;display:block}
 .offb:hover{color:var(--ink)}
 .week-f{padding:14px 16px 16px;display:grid;gap:8px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.week-f .btn-ess,.btn-ess{display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--paper,#fff);border:1.5px solid var(--jade);color:var(--ink)}
+.btn-ess .ecount{font:700 12px var(--sans);background:var(--jade);color:#000;padding:2px 8px;border-radius:999px}
+.ess-shop .ings{columns:2;column-gap:28px}.ess-shop .ings li{break-inside:avoid}
+.ess-edit{margin:-12px 0 22px}.linkb{border:0;background:none;padding:0;font:400 14px var(--sans);color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer}.linkb:hover{color:var(--ink)}
+.ess-add{display:flex;gap:8px;margin:0 0 20px;max-width:480px}.ess-add input{flex:1;min-width:0;font:400 16px var(--sans);padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--r-sm)}.ess-add input:focus{outline:2px solid var(--mark);outline-offset:1px}
+.ess-list li{display:flex;align-items:center;gap:8px}.ings.ess-list input:checked+span{opacity:1;text-decoration:none;font-weight:600}.ess-list .ex{border:0;background:none;font-size:20px;line-height:1;color:var(--muted);padding:0 4px;cursor:pointer}.ess-list .ex:hover{color:var(--arthur,#FF5A4E)}
+.pess{margin-bottom:14px}.pegrid{display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:18px}
 .week-f .minor{display:flex;justify-content:space-between;padding-top:4px}
 .week-f .minor button{border:0;background:none;padding:2px 0;font:400 13px var(--sans);color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .week-f .minor button:hover{color:var(--ink)}
@@ -335,6 +342,7 @@ footer a{color:var(--muted)}
     </div>
     <div class="slots" id="slots"></div>
     <div class="week-f">
+      <button class="btn btn-ess" id="essbtn" type="button">Weekly essentials</button>
       <button class="btn btn-main" id="shopbtn" type="button">Shopping list</button>
       <button class="btn btn-asda" id="asdabtn" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h18l-1.6 10.2a1.5 1.5 0 0 1-1.5 1.3H6.1a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M8 9l3-5M16 9l-3-5"/></svg>Send to Claude for ASDA</button>
       <div class="row2"><button class="btn btn-ghost" id="pdfbtn" type="button">Download PDF</button><button class="btn btn-ghost" id="mdbtn" type="button">Download .md</button></div>
