@@ -1,0 +1,10 @@
+{
+ "about": "Weeks we have ordered. The site adds these back to any browser that does not have them.",
+ "weeks": {
+  "2026-10-05": {
+   "d": ["halloumi-squash-orzo", "chorizo-rice", "peanut-noodles", "stroganoff", "pulled-pork", null, null],
+   "ess": {"Salted butter": 1, "Semi-skimmed milk": 1, "Crumpets": 1, "Bagels": 1, "Porridge oats": 1, "Easy peelers": 1, "Apples": 1, "Bananas": 1, "Strawberries": 1, "Cheddar cheese": 1},
+   "ordered": "2026-10-03"
+  }
+ }
+}

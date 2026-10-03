@@ -31,15 +31,17 @@ function weekRange(iso){return short(fromIso(iso))+' to '+short(dateOf(iso,6))}
 
 /* ---------- state ---------- */
 var S={wk:THIS,weeks:{},filter:'All',q:''};
+var PAGE='recipes',CAL={view:'week',wk:THIS,month:THIS.slice(0,7)};
 try{var sv=JSON.parse(localStorage.getItem('afk-weeks')||'null');if(sv&&sv.weeks)S.weeks=sv.weeks;
   else{var old=JSON.parse(localStorage.getItem('afk-week')||'null');
     if(old&&old.plan){var d=[null,null,null,null,null,null,null],j=0;old.plan.slice(0,old.n||7).forEach(function(s){if(isSlug(s)&&j<7)d[j++]=s});if(j)S.weeks[THIS]={d:d}}}}catch(e){}
 function W(iso){iso=iso||S.wk;if(!S.weeks[iso])S.weeks[iso]={d:[null,null,null,null,null,null,null]};return S.weeks[iso]}
 function days(iso){var w=S.weeks[iso||S.wk];return w?w.d:[null,null,null,null,null,null,null]}
 function meals(iso){var out=[];days(iso).forEach(function(s,i){if(isSlug(s))out.push({day:i,slug:s})});return out}
-function save(){Object.keys(S.weeks).forEach(function(k){if(!S.weeks[k].d.some(Boolean))delete S.weeks[k]});
+function save(){Object.keys(S.weeks).forEach(function(k){var w=S.weeks[k];if(w.d.some(Boolean))return;if(w.ordered||w.sent)w.cleared=true;else if(!w.cleared)delete S.weeks[k]});
   try{localStorage.setItem('afk-weeks',JSON.stringify({v:2,weeks:S.weeks}))}catch(e){}}
 
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 var FAV=[];try{FAV=JSON.parse(localStorage.getItem('afk-fav')||'[]')||[]}catch(e){}
 /* ---------- weekly essentials: ticked per week, a new week starts from the last one ---------- */
 var MINE=['Salted butter','Semi-skimmed milk','Toilet roll (non-scented, Shades)','Crumpets','Bagels','Porridge oats','Easy peelers','Apples','Oranges','Bananas','Strawberries','Chicken stock'];
@@ -47,10 +49,17 @@ var COMMON=['Sliced bread','Eggs','Cheddar cheese','Natural yoghurt','Kids yoghu
 var ES={custom:[],weeks:{}};try{var es0=JSON.parse(localStorage.getItem('afk-ess')||'null');if(es0&&es0.weeks)ES=es0;if(!ES.custom)ES.custom=[]}catch(e){}
 function saveEss(){try{localStorage.setItem('afk-ess',JSON.stringify(ES))}catch(e){}}
 function allEss(){return MINE.concat(ES.custom,COMMON)}
-function essSel(iso){iso=iso||S.wk;if(ES.weeks[iso])return ES.weeks[iso];
-  var prev=Object.keys(ES.weeks).filter(function(k){return k<iso}).sort().pop();return prev?ES.weeks[prev]:MINE}
-function ess(iso){var sel=essSel(iso);return allEss().filter(function(x){return sel.indexOf(x)>=0})}
-function setEss(iso,list){ES.weeks[iso]=list;saveEss()}
+/* a week's essentials are {name: how many}; an unedited week copies the last week before it */
+function essMap(iso){iso=iso||S.wk;var w=ES.weeks[iso];
+  if(!w){var prev=Object.keys(ES.weeks).filter(function(k){return k<iso}).sort().pop();w=prev?ES.weeks[prev]:null}
+  var m={};if(!w)MINE.forEach(function(x){m[x]=1});
+  else if(Array.isArray(w))w.forEach(function(x){m[x]=1});
+  else Object.keys(w).forEach(function(x){if(w[x]>0)m[x]=w[x]});
+  return m}
+function essItems(iso){var m=essMap(iso),all=allEss();
+  return all.concat(Object.keys(m).filter(function(x){return all.indexOf(x)<0})).filter(function(x){return m[x]>0}).map(function(x){return {n:x,q:m[x]}})}
+function ess(iso){return essItems(iso).map(function(e){return e.n+(e.q>1?' x'+e.q:'')})}
+function setEss(iso,m){ES.weeks[iso]=m;saveEss()}
 function hasAny(iso){return meals(iso).length||ess(iso).length}
 function isFav(s){return FAV.indexOf(s)>=0}
 function saveFav(){try{localStorage.setItem('afk-fav',JSON.stringify(FAV))}catch(e){}}
@@ -77,7 +86,7 @@ function num(q){q=Math.round(q*100)/100;var w=Math.floor(q),f=q-w,fr='';
   return (w?w:'')+fr||'0'}
 function singular(name){var m=name.match(/^([^(]*?)(\s*\(.*\))?$/),main=m[1],rest=m[2]||'';
   var words=main.split(' '),l=words.length-1,w=words[l];
-  if(/ies$/.test(w))w=w.replace(/ies$/,'y');else if(/oes$/.test(w))w=w.replace(/es$/,'');else if(/(ches|shes)$/.test(w))w=w.replace(/es$/,'');else if(/s$/.test(w)&&!/ss$/.test(w))w=w.replace(/s$/,'');
+  if(/chillies$/i.test(w))w=w.replace(/ies$/,'i');else if(/ies$/.test(w))w=w.replace(/ies$/,'y');else if(/oes$/.test(w))w=w.replace(/es$/,'');else if(/(ches|shes)$/.test(w))w=w.replace(/es$/,'');else if(/s$/.test(w)&&!/ss$/.test(w))w=w.replace(/s$/,'');
   words[l]=w;return words.join(' ')+rest}
 function qtyText(q,u){
   if(u==='g'&&q>=1000)return num(q/1000)+' kg';
@@ -135,8 +144,8 @@ function matches(r){var f=S.filter;
   if(f==='Family favourites'&&r.method!=='family')return false;
   if(f!=='All'&&f!=='Slow cooker'&&f!=='Dump and bake'&&f!=='Family favourites'&&r.tags.indexOf(f)<0)return false;
   return !S.q||matchQ(r)}
-function matchQ(r){var hay=(r.title+' '+r.summary+' '+r.tags.join(' ')+' '+r.ings.map(function(x){return I[x[2]][0]}).join(' ')).toLowerCase();
-  return S.q.toLowerCase().split(/\s+/).every(function(w){return hay.indexOf(w)>=0})}
+function matchQ(r,q){q=q===undefined?S.q:q;var hay=(r.title+' '+r.summary+' '+r.tags.join(' ')+' '+r.ings.map(function(x){return I[x[2]][0]}).join(' ')).toLowerCase();
+  return q.toLowerCase().split(/\s+/).every(function(w){return hay.indexOf(w)>=0})}
 function renderChips(){$('#chips-m').innerHTML=METHODS.map(function(f){return '<button type="button" aria-pressed="'+(S.filter===f)+'" data-f="'+f+'">'+f+(f==='Favourites'&&FAV.length?'<span class="cnt">'+FAV.length+'</span>':'')+'</button>'}).join('');
   $('#chips').innerHTML=TAGS.map(function(f){return '<button type="button" aria-pressed="'+(S.filter===f)+'" data-f="'+(S.filter===f?'All':f)+'">'+f+'</button>'}).join('')}
 
@@ -184,13 +193,13 @@ function addTo(slug,slot){var d=W().d,cur=d.indexOf(slug);
     if(slot<0){toast('That week is full. Remove a dinner or go to next week.');openWeek();return}}
   else if(cur>=0&&cur!==slot){d[cur]=isSlug(d[slot])?d[slot]:null}
   d[slot]=slug;toast(BY[slug].title+' on '+DAYS[slot]);refresh()}
-function refresh(){renderWeek();renderGrid()}
+function refresh(){renderWeek();renderGrid();if(PAGE==='calendar')renderCal()}
 function openWeek(){$('#week').classList.add('open')}
 
 /* ---------- overlays ---------- */
 var lastFocus=null,keyNav=null;
 function show(html,wide){lastFocus=document.activeElement;$('#sheet').className='sheet'+(wide?' wide':'');$('#sheet').innerHTML='<button type="button" class="close" data-close aria-label="Close">×</button>'+html;$('#ov').hidden=false;document.body.style.overflow='hidden';$('#ov').scrollTop=0;keyNav=null;$('#sheet').onclick=null;$('#sheet').onchange=null;$('#sheet').onsubmit=null;setTimeout(function(){var c=$('.close');if(c)c.focus()},30)}
-function hide(){$('#ov').hidden=true;document.body.style.overflow='';keyNav=null;if(location.hash)history.replaceState(null,'',location.pathname);if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+function hide(){$('#ov').hidden=true;document.body.style.overflow='';keyNav=null;if(PAGE==='calendar')history.replaceState(null,'',calHash());else if(location.hash)history.replaceState(null,'',location.pathname);if(lastFocus&&lastFocus.focus)lastFocus.focus()}
 
 /* ---------- recipe view and step-by-step cook mode ---------- */
 function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
@@ -207,7 +216,7 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
   show('<div class="hero">'+imgTag(slug,1400)+'</div><div class="credit">'+credit(slug)+(r.inspired?'. Idea from <a href="'+r.inspired+'" target="_blank" rel="noopener">Taming Twins</a>':'')+'</div>'+
    '<div class="r-in"><span class="kick">'+esc(ML(r))+'</span><h2 id="dlgTitle">'+esc(r.title)+'</h2><p class="lede">'+esc(r.summary)+'</p>'+when+
    '<div class="facts"><div class="fact"><b>'+r.prep+' min</b>'+(r.serves===4||r.method==='family'?'prep':'morning prep')+'</div><div class="fact"><b>'+esc(r.cook)+'</b>'+(r.method==='slow'?'then leave it':r.method==='family'?'cooking':r.serves===4?'in the oven':'at tea time')+'</div><div class="fact"><b>Serves '+(r.serves||5)+'</b>'+(r.serves===4?'or 2 adults and 3 boys':'2 adults, 3 boys')+'</div><div class="fact"><b>'+r.ings.length+'</b>ingredients</div></div>'+
-   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button><button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?btnI(IC.tick)+'In '+weekName(iso).toLowerCase():btnI(IC.plus)+'Add to '+weekName(iso).toLowerCase())+'</button><button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+starI(isFav(slug)).replace('<svg','<svg class="ico"')+(isFav(slug)?'Favourite':'Add to favourites')+'</button></div>'+
+   '<div class="r-actions"><button type="button" class="btn btn-main" data-cook>Cook step by step</button>'+(opt.cal&&on?'<button type="button" class="btn btn-ghost" data-swap>Change '+DAYS[day]+'\'s dinner</button><button type="button" class="btn btn-ghost" data-unplan>Take off '+DAYS[day]+'</button>':'<button type="button" class="btn btn-ghost" data-add="'+slug+'">'+(on?btnI(IC.tick)+'In '+weekName(iso).toLowerCase():btnI(IC.plus)+'Add to '+weekName(iso).toLowerCase())+'</button>')+'<button type="button" class="btn btn-ghost favbtn'+(isFav(slug)?' on':'')+'" data-fav="'+slug+'" aria-pressed="'+isFav(slug)+'">'+starI(isFav(slug)).replace('<svg','<svg class="ico"')+(isFav(slug)?'Favourite':'Add to favourites')+'</button></div>'+
    '<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="false" data-tab="cook">Step by step</button><button class="tab" role="tab" aria-selected="true" data-tab="all">Everything on one page</button></div>'+
    '<div id="tabbody"></div></div>');
   /* cards: 0 = what you need, 1..n = the steps, last = serve */
@@ -225,13 +234,15 @@ function recipeView(slug,opt){var r=BY[slug];if(!r)return;opt=opt||{};
   setTab(opt.tab||'all');
   $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
     if(t.dataset.tab)setTab(t.dataset.tab);
+    if(t.hasAttribute('data-swap')){pickView(iso,day);return}
+    if(t.hasAttribute('data-unplan')){var old=W(iso).d[day];W(iso).d[day]=null;save();hide();refresh();toastUndo(BY[old].title+' taken off '+DAYS[day],function(){W(iso).d[day]=old;save();refresh()});return}
     if(t.dataset.go!==undefined){step=+t.dataset.go;cook()}
     if(t.hasAttribute('data-cook')){step=0;setTab('cook');$('.tabs').scrollIntoView({behavior:'smooth',block:'start'})}
     if(t.hasAttribute('data-next')){if(step<cards.length-1){step++;cook();$('.tabs').scrollIntoView({block:'start'})}else{setTab('all');toast('Enjoy your tea')}}
     if(t.hasAttribute('data-prev')&&step>0){step--;cook()}
     if(t.dataset.add){addTo(slug);var d2=dayIn(slug,iso);t.innerHTML=d2>=0?btnI(IC.tick)+'On '+DAYS[d2]:btnI(IC.plus)+'Add to '+weekName(iso).toLowerCase()}};
   keyNav=function(e){if(curTab!=='cook')return;if(e.key==='ArrowRight'&&step<cards.length-1){step++;cook()}if(e.key==='ArrowLeft'&&step>0){step--;cook()}};
-  history.replaceState(null,'','#'+slug)}
+  if(PAGE!=='calendar')history.replaceState(null,'','#'+slug)}
 
 /* ---------- shopping list for a week ---------- */
 function splitText(x){return x.split.map(function(p){return DAY3[p.day]+' '+shortTitle(p.slug)+': '+p.a}).join('; ')}
@@ -256,49 +267,33 @@ function shopView(iso){iso=iso||S.wk;var ms=meals(iso);if(!hasAny(iso))return;va
 
 /* ---------- weekly essentials picker ---------- */
 function essView(iso){iso=iso||S.wk;
-  function li(x,own){var on=essSel(iso).indexOf(x)>=0;return '<li><label><input type="checkbox" data-e="'+esc(x)+'"'+(on?' checked':'')+'><span>'+esc(x)+'</span></label>'+(own?'<button type="button" class="ex" data-del="'+esc(x)+'" aria-label="Remove '+esc(x)+'">×</button>':'')+'</li>'}
-  function draw(){var n=ess(iso).length;
-    show('<div class="r-in essv"><span class="kick">Weekly essentials for '+weekName(iso).toLowerCase()+'</span><h2 id="dlgTitle">'+n+' ticked</h2>'+
-     '<p class="note">Tick what you need this week. Ticked items go at the top of the shopping list, the downloads and the ASDA shop. Next week starts with the same ticks.</p>'+
-     '<form class="ess-add" data-addf><input type="text" id="essnew" placeholder="Add your own, for example Wraps" aria-label="Add an essential" maxlength="60"><button type="submit" class="btn btn-ghost">Add</button></form>'+
-     '<div class="cols"><div><h3 class="label">Ours</h3><ul class="ings ess-list">'+MINE.map(function(x){return li(x)}).join('')+ES.custom.map(function(x){return li(x,1)}).join('')+'</ul></div>'+
-     '<div><h3 class="label">Other essentials</h3><ul class="ings ess-list">'+COMMON.map(function(x){return li(x)}).join('')+'</ul></div></div>'+
-     '<div class="r-actions" style="margin-top:18px"><button type="button" class="btn btn-main" data-done>Done</button><button type="button" class="btn btn-ghost" data-mine>Just ours</button><button type="button" class="btn btn-ghost" data-none>Untick all</button></div></div>');
-    var sc=$('#ov').scrollTop;
-    $('#sheet').onchange=function(e){var t=e.target;if(!t.dataset.e)return;var sel=essSel(iso).slice(),i=sel.indexOf(t.dataset.e);
-      if(t.checked&&i<0)sel.push(t.dataset.e);if(!t.checked&&i>=0)sel.splice(i,1);setEss(iso,sel);$('#dlgTitle').textContent=ess(iso).length+' ticked';renderWeek()};
-    $('#sheet').onsubmit=function(e){e.preventDefault();var v=$('#essnew').value.trim();if(!v)return;
-      if(allEss().some(function(x){return x.toLowerCase()===v.toLowerCase()})){var hit=allEss().filter(function(x){return x.toLowerCase()===v.toLowerCase()})[0],sel=essSel(iso).slice();if(sel.indexOf(hit)<0)sel.push(hit);setEss(iso,sel)}
-      else{ES.custom.push(v);var sel2=essSel(iso).slice();sel2.push(v);setEss(iso,sel2)}
-      renderWeek();draw();setTimeout(function(){$('#essnew').focus()},40)};
-    $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
-      if(t.hasAttribute('data-done')){hide();return}
-      if(t.hasAttribute('data-mine')){setEss(iso,MINE.concat(ES.custom));renderWeek();draw();return}
-      if(t.hasAttribute('data-none')){setEss(iso,[]);renderWeek();draw();return}
-      if(t.dataset.del){var x=t.dataset.del;ES.custom=ES.custom.filter(function(y){return y!==x});Object.keys(ES.weeks).forEach(function(k){ES.weeks[k]=ES.weeks[k].filter(function(y){return y!==x})});saveEss();renderWeek();draw()}}}
-  draw()}
-
-/* ---------- plan ahead: the calendar of weeks ---------- */
-var SHOWN=12;
-function planView(){var list=[],seen={};
-  for(var i=-1;i<SHOWN;i++){var w=addDays(THIS,7*i);list.push(w);seen[w]=1}
-  Object.keys(S.weeks).sort().forEach(function(w){if(!seen[w]&&S.weeks[w].d.some(Boolean))list.push(w)});
-  list.sort();
-  var rows=list.map(function(w){var d=days(w),c=meals(w).length;
-    return '<div class="cal-row'+(w===S.wk?' cur':'')+(w===THIS?' now':'')+'"><button type="button" class="cal-w" data-wk="'+w+'"><b>'+weekName(w)+'</b><span>'+weekRange(w)+'</span><small>'+(c?c+' dinner'+(c>1?'s':''):'Nothing planned')+'</small></button>'+
-      d.map(function(s,i){return '<button type="button" class="cal-d'+(isSlug(s)?' has':'')+(s==='off'?' off':'')+'" data-wk="'+w+'" data-cd="'+i+'" title="'+(isSlug(s)?esc(BY[s].title):s==='off'?'Night off':'Empty')+'"><span class="dn">'+dateOf(w,i).getDate()+'</span>'+(isSlug(s)?imgTag(s,120)+'<span class="ct">'+esc(shortTitle(s))+'</span>':s==='off'?'<span class="ct">Off</span>':'')+'</button>'}).join('')+
-      '<div class="cal-a">'+(c?'<button type="button" class="mini" data-shop="'+w+'">List</button><button type="button" class="mini" data-wmd="'+w+'">.md</button><button type="button" class="mini" data-wpdf="'+w+'">PDF</button><button type="button" class="mini" data-wasda="'+w+'">ASDA</button>':'')+'</div></div>'}).join('');
-  show('<div class="r-in"><span class="kick">Plan ahead</span><h2 id="dlgTitle">Your weeks</h2><p class="note">Tap a week to plan it, or tap a dinner to open it. Plan as far ahead as you like.</p>'+
-   '<div class="cal"><div class="cal-row head"><span></span>'+DAY3.map(function(d){return '<span class="label">'+d+'</span>'}).join('')+'<span></span></div>'+rows+'</div>'+
-   '<div class="r-actions" style="margin-top:16px"><button type="button" class="btn btn-ghost" data-more>Show 12 more weeks</button></div></div>',true);
-  $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
-    if(t.dataset.cd!==undefined){var s=days(t.dataset.wk)[+t.dataset.cd];if(isSlug(s)){recipeView(s,{wk:t.dataset.wk,day:+t.dataset.cd});return}S.wk=t.dataset.wk;refresh();hide();openWeek();toast(weekName(S.wk)+': drag a recipe onto '+DAYS[+t.dataset.cd]);return}
-    if(t.dataset.wk){S.wk=t.dataset.wk;refresh();hide();openWeek();return}
-    if(t.dataset.shop)shopView(t.dataset.shop);
-    if(t.dataset.wmd)downloadMD(t.dataset.wmd);
-    if(t.dataset.wpdf)downloadPDF(t.dataset.wpdf,t);
-    if(t.dataset.wasda)asdaView(t.dataset.wasda);
-    if(t.hasAttribute('data-more')){SHOWN+=12;planView();$('#ov').scrollTop=1e6}}}
+  function li(x,own){var q=essMap(iso)[x]||0;
+    return '<li class="'+(q?'on':'')+'"><label><input type="checkbox" data-e="'+esc(x)+'"'+(q?' checked':'')+'><span>'+esc(x)+'</span></label>'+
+      (q?'<span class="qty" role="group" aria-label="How many '+esc(x)+'"><button type="button" data-dec="'+esc(x)+'" aria-label="One fewer">&minus;</button><b>'+q+'</b><button type="button" data-inc="'+esc(x)+'" aria-label="One more">+</button></span>':'')+
+      (own?'<button type="button" class="ex" data-del="'+esc(x)+'" aria-label="Remove '+esc(x)+' from the list">×</button>':'')+'</li>'}
+  function lists(){var n=essItems(iso).length;$('#dlgTitle').textContent=n+' ticked';
+    $('#esslists').innerHTML='<div><h3 class="label">Ours</h3><ul class="ings ess-list">'+MINE.map(function(x){return li(x)}).join('')+ES.custom.map(function(x){return li(x,1)}).join('')+'</ul></div>'+
+      '<div><h3 class="label">Other essentials</h3><ul class="ings ess-list">'+COMMON.map(function(x){return li(x)}).join('')+'</ul></div>';renderWeek();if(PAGE==='calendar')renderCal()}
+  function change(x,q){var m=Object.assign({},essMap(iso));if(q>0)m[x]=Math.min(q,20);else delete m[x];setEss(iso,m);lists()}
+  show('<div class="r-in essv"><span class="kick">Weekly essentials for '+weekName(iso).toLowerCase()+', '+weekRange(iso)+'</span><h2 id="dlgTitle"></h2>'+
+   '<p class="note">Tick what you need this week and use + to buy more than one. Ticked items go at the top of the shopping list, the downloads and the ASDA shop. Next week starts with the same ticks.</p>'+
+   '<form class="ess-add"><input type="text" id="essnew" placeholder="Add your own, for example Wraps" aria-label="Add an essential" maxlength="60"><button type="submit" class="btn btn-ghost">Add</button></form>'+
+   '<div class="cols" id="esslists"></div>'+
+   '<div class="r-actions" style="margin-top:18px"><button type="button" class="btn btn-main" data-done>Done</button><button type="button" class="btn btn-ghost" data-mine>Just ours</button><button type="button" class="btn btn-ghost" data-none>Untick all</button></div></div>');
+  lists();
+  $('#sheet').onchange=function(e){var t=e.target;if(!t.dataset.e)return;change(t.dataset.e,t.checked?1:0)};
+  $('#sheet').onsubmit=function(e){e.preventDefault();var v=$('#essnew').value.trim();if(!v)return;
+    var hit=allEss().filter(function(x){return x.toLowerCase()===v.toLowerCase()})[0];
+    if(!hit){ES.custom.push(v);hit=v}
+    change(hit,Math.max(1,essMap(iso)[hit]||0));$('#essnew').value='';$('#essnew').focus()};
+  $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;var m=essMap(iso);
+    if(t.hasAttribute('data-done')){hide();return}
+    if(t.dataset.inc)change(t.dataset.inc,(m[t.dataset.inc]||0)+1);
+    if(t.dataset.dec)change(t.dataset.dec,(m[t.dataset.dec]||0)-1);
+    if(t.hasAttribute('data-mine')){var o={};MINE.concat(ES.custom).forEach(function(x){o[x]=1});setEss(iso,o);lists()}
+    if(t.hasAttribute('data-none')){setEss(iso,{});lists()}
+    if(t.dataset.del){var x=t.dataset.del;ES.custom=ES.custom.filter(function(y){return y!==x});
+      Object.keys(ES.weeks).forEach(function(k){var w=ES.weeks[k];if(Array.isArray(w))ES.weeks[k]=w.filter(function(y){return y!==x});else delete w[x]});saveEss();lists()}}}
 
 /* ---------- downloads ---------- */
 function fileDate(iso){return iso}
@@ -309,13 +304,14 @@ function asdaPrompt(iso){var ms=meals(iso),m=merged(iso);
   var L=['Please do our ASDA shop using my asda-weekly-shop skill.','',
     'Week of '+fmt(fromIso(iso),{weekday:'long',day:'numeric',month:'long',year:'numeric'})+' ('+ms.length+' dinner'+(ms.length===1?'':'s')+' for 2 adults and 3 young boys). Allergy: no prawns or shellfish.','',
     (ms.length?'Dinners: '+ms.map(function(x){return DAY3[x.day]+' '+BY[x.slug].title}).join('; ')+'.':'No dinners this week, essentials only.'),'','BUY (totals for the whole week, already combined):'];
-  var e=ess(iso);if(e.length){L.push('Weekly essentials (one of each, usual size):');e.forEach(function(x){L.push('- '+x)})}
+  var e=ess(iso);if(e.length){L.push('Weekly essentials (usual size, x2 means buy two):');e.forEach(function(x){L.push('- '+x)})}
   AISLES.forEach(function(a){if(CHECK[a[0]]||!m[a[0]].length)return;L.push(a[1]+':');m[a[0]].forEach(function(x){L.push('- '+x.q+' '+x.name)})});
   L.push('','CHECK THE CUPBOARD (do not add unless I say):');
   AISLES.forEach(function(a){if(!CHECK[a[0]]||!m[a[0]].length)return;m[a[0]].forEach(function(x){L.push('- '+x.q+' '+x.name)})});
-  L.push('','Fill the trolley only. Do not book a slot, check out or pay.');
+  L.push('','Fill the trolley only. Do not book a slot, check out or pay.','','Plan link (puts this week back on the website): '+planLink([iso]));
   return L.join('\n')}
 function sendToClaude(iso,where){if(!hasAny(iso)){toast('Nothing planned that week');return}
+  var w=W(iso);w.sent=isoOf(noon(new Date()));save();
   var p=asdaPrompt(iso),q=encodeURIComponent(p);
   try{navigator.clipboard&&navigator.clipboard.writeText(p)}catch(e){}
   if(where==='app'){location.href='claude://cowork/new?q='+q;toast('Opening the Claude app. Press send there.')}
@@ -342,7 +338,7 @@ function toMD(iso){var ms=meals(iso),m=merged(iso),U=usage(iso),base=location.or
   ms.forEach(function(x){var r=BY[x.slug];L.push('### '+DAYS[x.day]+': '+r.title,'');
     r.ings.forEach(function(g){var l=ingLine(g[0],g[1],g[2]),n=shareNote(g[2],x.day,U);L.push('- '+l.q+' '+l.name+(n?' **(shared: '+n.text+')**':''))});
     L.push('','Method:');r.steps.forEach(function(st,j){L.push((j+1)+'. **'+st[0]+'.** '+st[1])});L.push('','Serve with: '+r.serve,'')});
-  L.push('## Notes for the shopping agent','','- Quantities are totals across all the dinners above. Round up to the nearest pack size.','- **Allergy: no prawns or shellfish.** Check any prepared foods, including dumplings and stir-fry sauces.','- Weekly essentials are one of each in our usual size unless a quantity is given.','- Swap like for like if something is out of stock (for example a different brand of curry paste).','');
+  L.push('## Notes for the shopping agent','','- Quantities are totals across all the dinners above. Round up to the nearest pack size.','- **Allergy: no prawns or shellfish.** Check any prepared foods, including dumplings and stir-fry sauces.','- Weekly essentials are our usual size. x2 means buy two.','- Swap like for like if something is out of stock (for example a different brand of curry paste).','');
   return L.join('\n')}
 
 function pdfHTML(iso){var ms=meals(iso),m=merged(iso),U=usage(iso),d=days(iso);
@@ -376,8 +372,169 @@ function downloadPDF(iso,btn){if(!hasAny(iso)){toast('Nothing planned that week'
     '.then(function(){parent.__pdfDone(true)},function(){parent.__pdfDone(false)})})()<\/script></body></html>';
   document.body.appendChild(fr)}
 
+/* ---------- keeping plans safe ---------- */
+/* plans live in this browser; a plan link carries them to another device, and plans.json on the site holds weeks we have ordered */
+function b64e(t){return btoa(unescape(encodeURIComponent(t))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function b64d(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';return decodeURIComponent(escape(atob(t)))}
+function planLink(isos){var o={v:1,w:{},e:{}};
+  isos.forEach(function(iso){var d=days(iso);if(d.some(Boolean))o.w[iso]=d.map(function(x){return isSlug(x)||x==='off'?x:0});
+    if(ES.weeks[iso]||meals(iso).length)o.e[iso]=essMap(iso)});
+  return location.origin+location.pathname+'?plan='+b64e(JSON.stringify(o))}
+function allPlanLink(){var from=addDays(THIS,-7);return planLink(Object.keys(S.weeks).filter(function(k){return k>=from}).sort())}
+function importFromLink(){var m=location.search.match(/[?&]plan=([^&]+)/);if(!m)return;
+  try{var o=JSON.parse(b64d(m[1])),n=0;
+    Object.keys(o.w||{}).forEach(function(iso){S.weeks[iso]={d:o.w[iso].map(function(x){return x||null})};n++});
+    Object.keys(o.e||{}).forEach(function(iso){ES.weeks[iso]=o.e[iso]});saveEss();save();
+    setTimeout(function(){toast(n?'Plan restored: '+n+' week'+(n>1?'s':''):'Nothing to restore in that link')},400);
+    var wk=Object.keys(o.w||{}).sort()[0];if(wk){S.wk=wk;CAL.wk=wk}
+  }catch(e){setTimeout(function(){toast('That plan link did not work')},400)}
+  history.replaceState(null,'',location.pathname+(location.hash||''))}
+function loadSaved(){if(!window.fetch)return;
+  fetch('plans.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j||!j.weeks)return;var ch=0;
+    Object.keys(j.weeks).forEach(function(iso){var pw=j.weeks[iso],lw=S.weeks[iso];
+      if(!lw||(!lw.d.some(Boolean)&&!lw.cleared)){S.weeks[iso]={d:pw.d.map(function(x){return x||null}),ordered:pw.ordered};ch++}
+      else if(pw.ordered&&!lw.ordered&&lw.d.map(function(x){return x||''}).join()===pw.d.map(function(x){return x||''}).join()){lw.ordered=pw.ordered}
+      if(pw.ess&&!ES.weeks[iso]){ES.weeks[iso]=pw.ess;ch++}});
+    if(ch){saveEss();save();refresh()}}).catch(function(){})}
+function clearWeek(iso){var w=S.weeks[iso];if(!w||!w.d.some(Boolean))return;var keep=JSON.parse(JSON.stringify(w));
+  S.weeks[iso]={d:[null,null,null,null,null,null,null],cleared:true};save();refresh();
+  toastUndo(weekName(iso)+' cleared',function(){S.weeks[iso]=keep;save();refresh()})}
+
+/* ---------- pages ---------- */
+function calHash(){return CAL.view==='month'?'#/calendar/month/'+CAL.month:'#/calendar/'+CAL.wk}
+function go(h){if(location.hash===h)route();else location.hash=h}
+function route(){var h=location.hash,m;
+  if(h.indexOf('#/calendar')===0){PAGE='calendar';
+    if((m=h.match(/^#\/calendar\/month(?:\/(\d{4}-\d{2}))?/))){CAL.view='month';CAL.month=m[1]||CAL.month}
+    else{CAL.view='week';if((m=h.match(/^#\/calendar\/(\d{4}-\d{2}-\d{2})/)))CAL.wk=mondayOf(fromIso(m[1]))}}
+  else PAGE='recipes';
+  document.body.classList.toggle('on-cal',PAGE==='calendar');
+  $('#cal').hidden=PAGE!=='calendar';$('#recipes-page').hidden=PAGE==='calendar';
+  [].forEach.call(document.querySelectorAll('.pages a'),function(a){if(a.dataset.page===PAGE)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(PAGE==='calendar'){S.wk=CAL.view==='week'?CAL.wk:S.wk;renderCal();if(!$('#ov').hidden&&!document.querySelector('#sheet .hero'))hide()}
+  refreshRecipes()}
+function refreshRecipes(){renderWeek();renderGrid()}
+
+/* ---------- calendar ---------- */
+var MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function todayIso(){return isoOf(noon(new Date()))}
+function clock(mins){mins=Math.max(0,Math.floor(mins/5)*5);var h=Math.floor(mins/60),mm=mins%60,ap=h>=12?'pm':'am',h12=h%12||12;return h12+(mm?':'+String(mm).padStart(2,'0'):'')+ap}
+/* what to do and when, for tea at 6pm */
+function plan(r){var tea=18*60;
+  if(r.method==='slow'){var st=tea-r.cookMins;return st<7*60?'Get it in the slow cooker before you leave for work ('+r.prep+' min).':'In the slow cooker by about '+clock(st)+' ('+r.prep+' min prep).'}
+  if(r.method==='oven'&&r.serves!==4)return 'Build it in the morning ('+r.prep+' min) and keep it in the fridge. Oven on at about '+clock(tea-r.cookMins)+'.';
+  if(r.method==='oven')return 'About '+r.prep+' min to put together, then in the oven by '+clock(tea-r.cookMins)+'.';
+  return 'Start at about '+clock(tea-r.cookMins-r.prep)+' ('+r.prep+' min prep, then '+r.cook+').'}
+function meta(r){return '<span class="cm"><b>'+r.prep+' min</b> prep</span><span class="cm"><b>'+esc(r.cook)+'</b></span>'}
+function weekStatus(iso){var w=S.weeks[iso]||{};
+  if(w.ordered)return '<span class="stat ok">'+btnI(IC.tick)+'Ordered from ASDA</span>';
+  if(w.sent)return '<span class="stat ok">'+btnI(IC.tick)+'Sent to Claude for ASDA on '+short(fromIso(w.sent))+'</span>';return ''}
+
+function renderCal(){var b=$('#calBody');if(!b)return;
+  [].forEach.call(document.querySelectorAll('#calView button'),function(x){x.setAttribute('aria-pressed',x.dataset.view===CAL.view)});
+  if(CAL.view==='month')monthView(b);else weekView(b)}
+
+function weekView(b){var iso=CAL.wk,d=days(iso),c=meals(iso).length,t=todayIso();
+  $('#calTitle').textContent=weekName(iso);
+  $('#calSub').innerHTML=esc(fmt(fromIso(iso),{day:'numeric',month:'long'})+' to '+fmt(dateOf(iso,6),{day:'numeric',month:'long',year:'numeric'}))+'<span class="dotsep"></span>'+(c?c+' dinner'+(c>1?'s':'')+' planned':'Nothing planned yet');
+  var h='';
+  /* tonight and tomorrow morning, when this week is the current one */
+  var ti=-1;for(var i=0;i<7;i++)if(isoOf(dateOf(iso,i))===t)ti=i;
+  if(ti>=0){var tn=d[ti],tm=ti<6?d[ti+1]:days(addDays(iso,7))[0],tmw=ti<6?iso:addDays(iso,7),tmd=ti<6?ti+1:0;
+    if(isSlug(tn)){var r=BY[tn];
+      h+='<section class="tonight" aria-label="Tonight"><button type="button" class="tn-ph" data-open="'+tn+'" data-wk="'+iso+'" data-day="'+ti+'">'+imgTag(tn,900)+'</button>'+
+        '<div class="tn-tx"><span class="label tn-k">Tonight, '+esc(fmt(dateOf(iso,ti),{weekday:'long',day:'numeric',month:'long'}))+'</span><h3>'+esc(r.title)+'</h3>'+
+        '<p class="tn-plan">'+esc(plan(r))+'</p><div class="tn-meta"><span class="meth m-'+r.method+'">'+esc(ML(r))+'</span>'+meta(r)+'</div>'+
+        '<div class="r-actions"><button type="button" class="btn btn-main" data-cookday="'+ti+'" data-wk="'+iso+'">Cook step by step</button><button type="button" class="btn btn-ghost" data-open="'+tn+'" data-wk="'+iso+'" data-day="'+ti+'">See the recipe</button></div>'+
+        (isSlug(tm)&&BY[tm].method!=='family'?'<p class="tn-next"><b>Tomorrow morning:</b> '+esc(BY[tm].title)+'. '+esc(plan(BY[tm]))+' <button type="button" class="linkb" data-open="'+tm+'" data-wk="'+tmw+'" data-day="'+tmd+'">Open it</button></p>':'')+'</div></section>'}
+    else if(tn==='off')h+='<section class="tonight off"><div class="tn-tx"><span class="label tn-k">Tonight</span><h3>Night off</h3></div></section>';
+    else if(!tn)h+='<section class="tonight empty"><div class="tn-tx"><span class="label tn-k">Tonight</span><h3>Nothing planned</h3><div class="r-actions"><button type="button" class="btn btn-main" data-pick="'+ti+'" data-wk="'+iso+'">Pick tonight\'s dinner</button></div></div></section>'}
+  h+='<ol class="cw">';
+  for(var j=0;j<7;j++){var s=d[j],dt=dateOf(iso,j),di=isoOf(dt),isT=di===t,ps=di<t;
+    var head='<div class="cw-h"><b>'+DAY3[j]+'</b><span>'+dt.getDate()+' '+fmt(dt,{month:'short'})+'</span>'+(isT?'<em>Today</em>':'')+'</div>';
+    if(isSlug(s)){var r2=BY[s];
+      h+='<li class="cw-d full'+(isT?' today':'')+(ps?' past':'')+'">'+head+'<button type="button" class="cw-open" data-open="'+s+'" data-wk="'+iso+'" data-day="'+j+'" aria-label="'+esc(DAYS[j]+': '+r2.title)+'"><span class="cw-ph">'+imgTag(s,500)+'<span class="meth m-'+r2.method+'">'+esc(ML(r2))+'</span></span>'+
+        '<span class="cw-t">'+esc(r2.title)+'</span><span class="cw-m">'+meta(r2)+'</span></button>'+
+        '<div class="cw-a"><button type="button" class="cw-cook" data-cookday="'+j+'" data-wk="'+iso+'">Cook</button><button type="button" class="cw-sw" data-pick="'+j+'" data-wk="'+iso+'">Change</button></div></li>'}
+    else if(s==='off')h+='<li class="cw-d off'+(isT?' today':'')+'">'+head+'<div class="cw-blank"><span>Night off</span><button type="button" class="cw-sw" data-pick="'+j+'" data-wk="'+iso+'">Change</button></div></li>';
+    else if(ps)h+='<li class="cw-d past empty">'+head+'<div class="cw-blank"><span>Nothing planned</span></div></li>';
+    else h+='<li class="cw-d empty'+(isT?' today':'')+'">'+head+'<button type="button" class="cw-add" data-pick="'+j+'" data-wk="'+iso+'">'+btnI(IC.plus)+'Add a dinner</button></li>'}
+  h+='</ol>';
+  var ne=ess(iso).length,any=c||ne;
+  h+='<div class="cw-foot"><div class="cw-st">'+weekStatus(iso)+'</div><div class="cw-btns">'+
+    '<button type="button" class="btn btn-ess" data-ess="'+iso+'"><span>Weekly essentials</span><span class="ecount">'+ne+' ticked</span></button>'+
+    '<button type="button" class="btn btn-main" data-shop="'+iso+'"'+(any?'':' disabled')+'>Shopping list</button>'+
+    '<button type="button" class="btn btn-asda" data-asda="'+iso+'"'+(any?'':' disabled')+'>Send to Claude for ASDA</button>'+
+    '<button type="button" class="btn btn-ghost" data-pdf="'+iso+'"'+(any?'':' disabled')+'>PDF</button>'+
+    '<button type="button" class="btn btn-ghost" data-md="'+iso+'"'+(any?'':' disabled')+'>.md</button></div>'+
+    '<div class="cw-minor"><button type="button" class="linkb" data-link>Copy plan link for another device</button>'+(days(iso).some(Boolean)?'<button type="button" class="linkb" data-clear="'+iso+'">Clear this week</button>':'')+'</div></div>';
+  b.innerHTML=h}
+
+function monthView(b){var ym=CAL.month,y=+ym.slice(0,4),mo=+ym.slice(5,7)-1,first=new Date(y,mo,1,12),t=todayIso();
+  var start=mondayOf(first),last=new Date(y,mo+1,0,12),end=addDays(mondayOf(last),6),n=0,agenda='';
+  $('#calTitle').textContent=MON[mo]+' '+y;
+  var h='<div class="cm-grid" role="grid"><div class="cm-row cm-head" role="row">'+DAY3.map(function(x){return '<span role="columnheader">'+x+'</span>'}).join('')+'</div>';
+  for(var wk=start;wk<=end;wk=addDays(wk,7)){var d=days(wk);h+='<div class="cm-row" role="row">';
+    for(var i=0;i<7;i++){var dt=dateOf(wk,i),di=isoOf(dt),s=d[i],out=dt.getMonth()!==mo,cls='cm-c'+(out?' out':'')+(di===t?' today':'')+(di<t?' past':'');
+      var num='<span class="cm-n">'+dt.getDate()+'</span>';
+      if(isSlug(s)){if(!out){n++;agenda+='<li><button type="button" data-open="'+s+'" data-wk="'+wk+'" data-day="'+i+'"><span class="ag-d"><b>'+DAY3[i]+'</b>'+dt.getDate()+'</span><span class="ag-ph">'+imgTag(s,160)+'</span><span class="ag-t">'+esc(BY[s].title)+'<small>'+esc(ML(BY[s]))+', '+BY[s].prep+' min prep</small></span></button></li>'}
+        h+='<button type="button" role="gridcell" class="'+cls+' full" data-open="'+s+'" data-wk="'+wk+'" data-day="'+i+'" aria-label="'+esc(fmt(dt,{weekday:'long',day:'numeric',month:'long'})+': '+BY[s].title)+'">'+num+'<span class="cm-ph">'+imgTag(s,300)+'</span><span class="cm-t">'+esc(shortTitle(s))+'</span></button>'}
+      else if(s==='off')h+='<button type="button" role="gridcell" class="'+cls+' off" data-pick="'+i+'" data-wk="'+wk+'">'+num+'<span class="cm-o">Night off</span></button>';
+      else if(di<t)h+='<span role="gridcell" class="'+cls+'">'+num+'</span>';
+      else h+='<button type="button" role="gridcell" class="'+cls+' empty" data-pick="'+i+'" data-wk="'+wk+'" aria-label="Add a dinner on '+esc(fmt(dt,{weekday:'long',day:'numeric',month:'long'}))+'">'+num+'<span class="cm-plus">'+btnI(IC.plus)+'</span></button>'}
+    h+='<button type="button" class="cm-wk" data-week="'+wk+'" aria-label="Open the week of '+esc(short(fromIso(wk)))+'">Week</button></div>'}
+  h+='</div>';
+  $('#calSub').innerHTML=(n?n+' dinner'+(n>1?'s':'')+' planned':'Nothing planned yet')+'<span class="dotsep"></span>Tap a dinner to cook it, or an empty day to add one';
+  if(agenda)h+='<ol class="agenda">'+agenda+'</ol>';
+  h+='<div class="cw-minor"><button type="button" class="linkb" data-link>Copy plan link for another device</button></div>';
+  b.innerHTML=h}
+
+/* pick a dinner for one day */
+function pickView(iso,day){var cur=days(iso)[day],f='All',q='';
+  var FL=['All','Favourites','Slow cooker','Dump and bake','Family favourites'];
+  function list(){var on=days(iso);
+    var rs=R.filter(function(r){if(f==='Favourites'&&!isFav(r.slug))return false;if(f!=='All'&&f!=='Favourites'&&ML(r)!==f&&!(f==='Family favourites'&&r.method==='family'))return false;
+      return !q||matchQ(r,q)});
+    $('#pk-list').innerHTML=rs.map(function(r){var di=on.indexOf(r.slug);
+      return '<li><button type="button" data-set="'+r.slug+'" class="'+(r.slug===cur?'cur':'')+'"><span class="pk-ph">'+imgTag(r.slug,240)+'</span><span class="pk-t">'+esc(r.title)+'<small>'+esc(ML(r))+', '+r.prep+' min prep, '+esc(r.cook)+'</small>'+(di>=0?'<em>On '+DAYS[di]+'</em>':'')+'</span></button></li>'}).join('')||'<li class="pk-none">No recipes match that.</li>';
+    [].forEach.call(document.querySelectorAll('.pk-f button'),function(x){x.setAttribute('aria-pressed',x.dataset.f===f)})}
+  show('<div class="r-in pick"><span class="kick">'+esc(weekName(iso))+'</span><h2 id="dlgTitle">'+(isSlug(cur)?'Change ':'Pick ')+esc(DAYS[day])+'\'s dinner</h2><p class="note">'+esc(fmt(dateOf(iso,day),{weekday:'long',day:'numeric',month:'long'}))+'</p>'+
+   '<div class="pk-bar"><label class="search"><span class="sr">Search</span><input id="pkq" type="search" placeholder="Search recipes or ingredients" autocomplete="off"></label>'+
+   '<button type="button" class="btn btn-ghost" data-set="off">Night off</button>'+(cur?'<button type="button" class="btn btn-ghost" data-set="">Leave it empty</button>':'')+'</div>'+
+   '<div class="pk-f">'+FL.map(function(x){return '<button type="button" data-f="'+x+'">'+x+'</button>'}).join('')+'</div><ul class="pk-list" id="pk-list"></ul></div>',true);
+  list();
+  $('#pkq').addEventListener('input',function(e){q=e.target.value.trim().toLowerCase();list()});
+  $('#sheet').onclick=function(e){var t=e.target.closest('button');if(!t)return;
+    if(t.dataset.f){f=t.dataset.f;list();return}
+    if(t.dataset.set!==undefined){var v=t.dataset.set||null,d=W(iso).d,was=d.indexOf(v);
+      if(v&&v!=='off'&&was>=0&&was!==day)d[was]=isSlug(cur)?cur:null;
+      d[day]=v;if(S.weeks[iso].cleared)delete S.weeks[iso].cleared;save();hide();refresh();
+      toast(v==='off'?DAYS[day]+' is a night off':v?BY[v].title+' on '+DAYS[day]:DAYS[day]+' left empty')}}}
+
+/* calendar clicks */
+document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('#cal button');if(!t)return;
+  var wk=t.dataset.wk;
+  if(t.dataset.view){CAL.view=t.dataset.view;if(CAL.view==='month')CAL.month=CAL.wk.slice(0,7);else if(CAL.month!==THIS.slice(0,7))CAL.wk=mondayOf(new Date(+CAL.month.slice(0,4),+CAL.month.slice(5,7)-1,1,12));else CAL.wk=THIS;go(calHash());return}
+  if(t.id==='calPrev'||t.id==='calNext'){var dir=t.id==='calNext'?1:-1;
+    if(CAL.view==='week')CAL.wk=addDays(CAL.wk,7*dir);else{var y=+CAL.month.slice(0,4),m=+CAL.month.slice(5,7)-1+dir;var nd=new Date(y,m,1,12);CAL.month=isoOf(nd).slice(0,7)}
+    go(calHash());return}
+  if(t.id==='calToday'){CAL.wk=THIS;CAL.month=THIS.slice(0,7);if(CAL.view==='month')CAL.month=todayIso().slice(0,7);go(calHash());return}
+  if(t.dataset.week){CAL.view='week';CAL.wk=t.dataset.week;go(calHash());return}
+  if(t.dataset.open){recipeView(t.dataset.open,{wk:wk,day:+t.dataset.day,cal:true});return}
+  if(t.dataset.cookday!==undefined){var dd=+t.dataset.cookday;recipeView(days(wk)[dd],{wk:wk,day:dd,cal:true,tab:'cook'});return}
+  if(t.dataset.pick!==undefined){pickView(wk,+t.dataset.pick);return}
+  if(t.dataset.ess){essView(t.dataset.ess);return}
+  if(t.dataset.shop){shopView(t.dataset.shop);return}
+  if(t.dataset.asda){asdaView(t.dataset.asda);return}
+  if(t.dataset.pdf){downloadPDF(t.dataset.pdf,t);return}
+  if(t.dataset.md){downloadMD(t.dataset.md);return}
+  if(t.dataset.clear){clearWeek(t.dataset.clear);return}
+  if(t.hasAttribute('data-link')){var L=allPlanLink();(navigator.clipboard?navigator.clipboard.writeText(L):Promise.reject()).then(function(){toast('Plan link copied. Open it on your other device.')},function(){window.prompt('Copy this link and open it on your other device',L)})}});
+
 /* ---------- toast ---------- */
-var tt;function toast(t){var el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){el.classList.remove('on')},2200)}
+var tt;function toast(t){var el=$('#toast');el.textContent=t;el.classList.remove('act');el.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){el.classList.remove('on')},2200)}
+function toastUndo(t,fn){var el=$('#toast');el.innerHTML='<span>'+esc(t)+'</span><button type="button">Undo</button>';el.classList.add('on','act');
+  el.querySelector('button').onclick=function(){fn();el.classList.remove('on','act');toast('Put back')};clearTimeout(tt);tt=setTimeout(function(){el.classList.remove('on','act')},7000)}
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){var fv=e.target.closest('[data-fav]');if(fv){e.preventDefault();e.stopPropagation();toggleFav(fv.dataset.fav);return}
@@ -395,7 +552,7 @@ document.addEventListener('keydown',function(e){if($('#ov').hidden)return;if(e.k
 $('#q').addEventListener('input',function(e){S.q=e.target.value.trim();renderGrid()});
 $('#prevwk').onclick=function(){setWeek(addDays(S.wk,-7))};
 $('#nextwk').onclick=function(){setWeek(addDays(S.wk,7))};
-$('#clear').onclick=function(){if(!days().some(Boolean))return;S.weeks[S.wk]={d:[null,null,null,null,null,null,null]};refresh();toast(weekName(S.wk)+' cleared')};
+$('#clear').onclick=function(){clearWeek(S.wk)};
 $('#fill').onclick=function(){var d=W().d,pool=R.filter(function(r){return d.indexOf(r.slug)<0&&matches(r)}).map(function(r){return r.slug}),n=0;
   for(var i=0;i<7;i++){if(!d[i]&&!past(i)&&pool.length){d[i]=pool.splice(Math.floor(Math.random()*pool.length),1)[0];n++}}
   refresh();toast(n?'Filled '+n+' day'+(n>1?'s':'')+'. Swap any you don\'t fancy.':'No empty days to fill')};
@@ -404,7 +561,7 @@ $('#essbtn').onclick=function(){essView()};
 $('#mdbtn').onclick=function(){downloadMD(S.wk)};
 $('#asdabtn').onclick=function(){asdaView(S.wk)};
 $('#pdfbtn').onclick=function(){downloadPDF(S.wk,this)};
-$('#planbtn').onclick=function(){planView()};
+$('#planbtn').onclick=function(){go('#/calendar/month')};
 $('#weekbtn').onclick=function(){$('#week').classList.toggle('open')};
 $('#wkclose').onclick=function(){$('#week').classList.remove('open')};
 
@@ -421,6 +578,8 @@ slots.addEventListener('drop',function(e){var s=e.target.closest('.slot');if(!s)
   if(dragFrom!==null){var a=d[dragFrom];d[dragFrom]=d[to]==='off'?null:d[to];d[to]=a;dragFrom=null;refresh();return}
   var slug=e.dataTransfer.getData('text/plain');if(BY[slug])addTo(slug,to)});
 
-renderChips();refresh();
+importFromLink();renderChips();route();
 if(location.hash.length>1&&BY[location.hash.slice(1)])recipeView(location.hash.slice(1));
+loadSaved();
+window.addEventListener('hashchange',route);
 })();
