@@ -308,7 +308,7 @@ function asdaPrompt(iso){var ms=meals(iso),m=merged(iso);
   AISLES.forEach(function(a){if(CHECK[a[0]]||!m[a[0]].length)return;L.push(a[1]+':');m[a[0]].forEach(function(x){L.push('- '+x.q+' '+x.name)})});
   L.push('','CHECK THE CUPBOARD (do not add unless I say):');
   AISLES.forEach(function(a){if(!CHECK[a[0]]||!m[a[0]].length)return;m[a[0]].forEach(function(x){L.push('- '+x.q+' '+x.name)})});
-  L.push('','Fill the trolley only. Do not book a slot, check out or pay.','','Plan link (puts this week back on the website): '+planLink([iso]));
+  L.push('','Fill the trolley only. Do not book a slot, check out or pay.','','When the trolley is done, record this week as ordered on the website (step 6 of the skill), so it shows on every device.','Plan link: '+planLink([iso]));
   return L.join('\n')}
 function sendToClaude(iso,where){if(!hasAny(iso)){toast('Nothing planned that week');return}
   var w=W(iso);w.sent=isoOf(noon(new Date()));save();
@@ -392,9 +392,10 @@ function importFromLink(){var m=location.search.match(/[?&]plan=([^&]+)/);if(!m)
 function loadSaved(){if(!window.fetch)return;
   fetch('plans.json',{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){if(!j||!j.weeks)return;var ch=0;
     Object.keys(j.weeks).forEach(function(iso){var pw=j.weeks[iso],lw=S.weeks[iso];
-      if(!lw||(!lw.d.some(Boolean)&&!lw.cleared)){S.weeks[iso]={d:pw.d.map(function(x){return x||null}),ordered:pw.ordered};ch++}
-      else if(pw.ordered&&!lw.ordered&&lw.d.map(function(x){return x||''}).join()===pw.d.map(function(x){return x||''}).join()){lw.ordered=pw.ordered}
-      if(pw.ess&&!ES.weeks[iso]){ES.weeks[iso]=pw.ess;ch++}});
+      /* an ordered week is what we actually bought, so it wins on every device until it is ordered again */
+      var fresh=!lw||(!lw.d.some(Boolean)&&!lw.cleared)||(pw.ordered&&lw.ordered!==pw.ordered);
+      if(fresh){S.weeks[iso]={d:pw.d.map(function(x){return x||null}),ordered:pw.ordered};if(pw.ess)ES.weeks[iso]=pw.ess;ch++}
+      else if(pw.ess&&!ES.weeks[iso]){ES.weeks[iso]=pw.ess;ch++}});
     if(ch){saveEss();save();refresh()}}).catch(function(){})}
 function clearWeek(iso){var w=S.weeks[iso];if(!w||!w.d.some(Boolean))return;var keep=JSON.parse(JSON.stringify(w));
   S.weeks[iso]={d:[null,null,null,null,null,null,null],cleared:true};save();refresh();
