@@ -413,7 +413,8 @@ function route(){var h=location.hash,m;
   $('#cal').hidden=PAGE!=='calendar';$('#recipes-page').hidden=PAGE==='calendar';
   [].forEach.call(document.querySelectorAll('.pages a'),function(a){if(a.dataset.page===PAGE)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   if(PAGE==='calendar'){S.wk=CAL.view==='week'?CAL.wk:S.wk;renderCal();if(!$('#ov').hidden&&!document.querySelector('#sheet .hero'))hide()}
-  refreshRecipes()}
+  refreshRecipes();
+  if(PAGE==='recipes'&&h.length>1&&BY[h.slice(1)])recipeView(h.slice(1))}
 function refreshRecipes(){renderWeek();renderGrid()}
 
 /* ---------- calendar ---------- */
@@ -580,7 +581,6 @@ slots.addEventListener('drop',function(e){var s=e.target.closest('.slot');if(!s)
   var slug=e.dataTransfer.getData('text/plain');if(BY[slug])addTo(slug,to)});
 
 importFromLink();renderChips();route();
-if(location.hash.length>1&&BY[location.hash.slice(1)])recipeView(location.hash.slice(1));
 loadSaved();
 window.addEventListener('hashchange',route);
 })();
