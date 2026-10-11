@@ -68,7 +68,7 @@ function toggleFav(s){var i=FAV.indexOf(s);if(i>=0)FAV.splice(i,1);else FAV.push
   if(S.filter==='Favourites')renderGrid();renderChips();toast(isFav(s)?'Added to favourites':'Removed from favourites')}
 
 /* ---------- photos ---------- */
-function photo(slug,w){var p=P[slug];if(p&&p.file)return p.file;return p?p.img+'?auto=format&fit=crop&w='+(w||800)+'&q=75':null}
+function photo(slug,w){var p=P[slug];if(p&&p.sm&&(w||800)<=640)return p.sm;if(p&&p.file)return p.file;return p?p.img+'?auto=format&fit=crop&w='+(w||800)+'&q=75':null}
 function imgTag(slug,w,cls){var src=photo(slug,w),r=BY[slug];
   if(!src) return '<div class="'+(cls||'')+'" style="display:grid;place-items:center;height:100%;background:var(--mark-pale);font:700 15px var(--sans);color:var(--mark);padding:12px;text-align:center">'+esc(r.title)+'</div>';
   return '<img src="'+src+'" alt="'+esc(r.title)+'" loading="lazy" class="'+(cls||'')+'" onerror="this.outerHTML=window.__ph(this.alt)">'}
